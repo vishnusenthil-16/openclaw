@@ -44,10 +44,7 @@ import {
 } from "./openclaw-agent-db-lifecycle.js";
 import { assertAgentDatabaseResourceAdmission } from "./openclaw-agent-db-resources.js";
 import { revalidateAgentDatabaseTerminalOpenAsync } from "./openclaw-agent-db-terminal.js";
-import {
-  getOpenClawAgentDatabaseValidationForTransfer,
-  type OpenClawAgentDatabaseValidation,
-} from "./openclaw-agent-db-validation-cache.js";
+import type { OpenClawAgentDatabaseValidation } from "./openclaw-agent-db-validation-cache.js";
 import { withWorkerAdmission } from "./openclaw-agent-db-worker-admission.js";
 import {
   INCOGNITO_AGENT_SQLITE_BASENAME,
@@ -298,16 +295,7 @@ export function createOpenClawAgentDatabaseAdmissionOwner(
       await revalidateAgentDatabaseTerminalOpenAsync(pathname, assertCurrent, signal);
     }
     const cached = cache.databases.get(pathname);
-    const schema = getOpenClawAgentDatabaseValidationForTransfer({
-      agentId,
-      path: pathname,
-    })?.schema;
-    if (
-      !prepared &&
-      isMainThread &&
-      (!cached?.db.isOpen || !schema || Atomics.load(new Int32Array(schema.valid), 0) !== 1) &&
-      !cache.pending.has(pathname)
-    ) {
+    if (!prepared && isMainThread && !cached?.db.isOpen && !cache.pending.has(pathname)) {
       return withWorkerAdmission(
         options,
         assertCurrent,

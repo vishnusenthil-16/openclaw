@@ -200,6 +200,15 @@ flushes the remaining batch. Fresh checkpoints remain untouched, and a failed or
 canceled scan leaves uncommitted derived totals for the next refresh. Persisted
 rollups, partitions, schemas, and report totals keep their existing format.
 
+Each asynchronous shared-state read awaits its query, transport close, and private
+snapshot cleanup in order. Shutdown aborts admission and joins those same operations
+before releasing the snapshot or native reference. Dispatch checks the selected
+source once; a pathname or internal scope changing after the query no longer
+discards the result already read. Multi-statement reads still use one snapshot,
+and security consumers check current authority at their own effect boundary.
+Synchronous metadata scopes close their native reader on return; accepted async
+reads retain its private snapshot bytes until their final cleanup.
+
 Transcript history and search lanes likewise retire surplus workers after 30
 seconds idle. Each lane keeps one worker until its existing five-minute idle
 retirement, which waits for logical reader leases to be released. Surplus

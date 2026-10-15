@@ -4,9 +4,7 @@ import { MessagePort } from "node:worker_threads";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { runtimeProcessEntrypoints } from "../infra/runtime-process-entrypoints.js";
 import { resolveRuntimeWorkerUrl } from "../infra/runtime-worker-url.js";
-import { getOrLoadSqliteDatabaseAdmissionForPath } from "../infra/sqlite-database-admission.js";
 import { throwSqliteLifecycleErrors } from "../infra/sqlite-lifecycle-errors.js";
-import { schemaAdmission } from "../infra/sqlite-schema-admission.js";
 import type { SqliteWorkerCloseReceipt } from "../infra/sqlite-worker-contract.js";
 import {
   assertExistingDatabaseIdentity,
@@ -511,8 +509,7 @@ export function createAgentDatabaseNativeGeneration(
       assertCallerCurrent?.();
       signal?.throwIfAborted();
     };
-    const wasPrepared = preparationPublished;
-    const preparing = wasPrepared ? undefined : createDeferredCore();
+    const preparing = preparationPublished ? undefined : createDeferredCore();
     if (preparing) {
       pendingPreparations.add(preparing.promise);
     }
@@ -526,26 +523,7 @@ export function createAgentDatabaseNativeGeneration(
       if (!store) {
         return undefined;
       }
-      const schema = createIfMissing
-        ? getOpenClawAgentDatabaseValidationForTransfer({ agentId, path: pathname })?.schema
-        : undefined;
-      // Raw in-process DDL also invalidates the physical owner's catalog, even when
-      // that connection has never borrowed the agent's validation receipt.
-      const admittedSchema =
-        createIfMissing && wasPrepared
-          ? getOrLoadSqliteDatabaseAdmissionForPath(pathname, schemaAdmission, () => undefined)
-          : undefined;
-      const requiresReadmission =
-        createIfMissing &&
-        wasPrepared &&
-        (!schema ||
-          Atomics.load(new Int32Array(schema.valid), 0) !== 1 ||
-          !admittedSchema ||
-          admittedSchema.schemaVersion !== schema.facts.schemaVersion ||
-          admittedSchema.userVersion !== schema.facts.userVersion ||
-          captureAgentDatabasePreparationJournal(agentId, { env: input.environment }) !==
-            undefined);
-      if (!nativeIdentity || requiresReadmission) {
+      if (!nativeIdentity) {
         const registration = captureOpenClawAgentDatabaseRegistration({
           agentId,
           agentPath: pathname,

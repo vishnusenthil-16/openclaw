@@ -228,7 +228,7 @@ it("keeps a composite snapshot alive when its callback closes the live writer", 
   expect(mock.cleanup).toHaveBeenCalledTimes(1);
 });
 
-it("retries transport stop before waiting for a still-pending producer", async () => {
+it("retries transport stop and settles the already-selected query", async () => {
   const options = source();
   const started = createDeferredCore();
   const reply = createDeferredCore<OpenClawStateReadOutcome>();
@@ -254,40 +254,9 @@ it("retries transport stop before waiting for a still-pending producer", async (
   await expect(closeOpenClawStateDatabaseByPathAsync(options.path)).resolves.toBe(false);
   expect(mock.close).toHaveBeenCalledTimes(2);
   expect(mock.cleanup).toHaveBeenCalledTimes(1);
-  expect(await observed).toMatchObject({
-    error: expect.objectContaining({ message: expect.stringMatching(/closed/) }),
+  expect(await observed).toEqual({
+    value: { ok: true, type: "backup.runs", sourceAdmitted: true, runs: [] },
   });
-});
-
-it("does not observe an independent source retired during an admitted read failure", async () => {
-  const options = source();
-  const failure = new Error("query failed");
-  const retired = new Error("original source retired");
-  const assertCurrent = vi.fn();
-  const observe = vi.fn();
-  const release = vi.fn();
-  mock.borrow.mockImplementation(() => {
-    throw new Error("Asynchronous shared-state reads cannot run inside a native transaction");
-  });
-  mock.independent.mockReturnValue({ assertCurrent, observe, release });
-  mock.read.mockImplementation(async () => {
-    assertCurrent.mockImplementation(() => {
-      throw retired;
-    });
-    return { error: failure, sourceAdmitted: true };
-  });
-  await expect(
-    executeExistingOpenClawStateRead(options, { type: "backup.runs" }),
-  ).rejects.toMatchObject({
-    cause: failure,
-    errors: [failure, retired],
-  });
-  expect(observe).not.toHaveBeenCalled();
-  expect(release).toHaveBeenCalledOnce();
-  expect(mock.borrow).not.toHaveBeenCalled();
-  expect(mock.prepareNative).not.toHaveBeenCalled();
-  expect(mock.prepareSource).not.toHaveBeenCalled();
-  expect(mock.prepareSourceAsync).not.toHaveBeenCalled();
 });
 
 it("joins maintenance reads and retries their transport before closing scoped handles", async () => {

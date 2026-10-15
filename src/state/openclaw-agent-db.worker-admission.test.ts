@@ -32,16 +32,8 @@ import {
   releaseOpenClawAgentDatabaseLease,
 } from "./openclaw-agent-db-lease.js";
 import { closeCachedOpenClawAgentDatabase } from "./openclaw-agent-db-lifecycle.js";
-import {
-  openOpenClawAgentDatabaseReadOnly,
-  hasOpenClawAgentReadOnlySchema,
-} from "./openclaw-agent-db-readonly-open.js";
 import * as validationCache from "./openclaw-agent-db-validation-cache.js";
-import {
-  getOpenClawAgentDatabaseValidation,
-  getOpenClawAgentDatabaseValidationForTransfer,
-  invalidateOpenClawAgentDatabaseValidation,
-} from "./openclaw-agent-db-validation-cache.js";
+import { getOpenClawAgentDatabaseValidationForTransfer } from "./openclaw-agent-db-validation-cache.js";
 import { withOpenClawAgentDatabaseWrite } from "./openclaw-agent-db-write.js";
 import {
   closeOpenClawAgentDatabaseByPathAsync,
@@ -189,47 +181,6 @@ it.each(["before handoff", "after handoff"] as const)(
   },
 );
 
-it("adopts worker admission after a retained reader observes an already-revalidated schema", async () => {
-  const options = {
-    agentId: "main",
-    env: { OPENCLAW_STATE_DIR: tempDirs.make("agent-reader-readmission-") },
-  };
-  const database = await withOpenClawAgentDatabaseWrite(options, (opened) => opened);
-  const reader = openOpenClawAgentDatabaseReadOnly(options);
-  assert(reader.found);
-  expect(validationCache.hasOpenClawAgentCanonicalValidation(reader.database)).toBe(true);
-  const foreign = openNodeSqliteDatabase(database.path);
-  foreign.exec("CREATE TABLE late_reader_fixture(value TEXT)");
-  foreign.close();
-  closeCachedOpenClawAgentDatabase(database);
-  const capture = validationCache.captureOpenClawAgentDatabaseAdmissionPublication;
-  const observeReader = vi.fn(() => {
-    expect(hasOpenClawAgentReadOnlySchema(reader.database)).toBe(true);
-  });
-  const publication = vi
-    .spyOn(validationCache, "captureOpenClawAgentDatabaseAdmissionPublication")
-    .mockImplementation((target) => {
-      const publish = capture(target);
-      return (identity, received) => {
-        publish(identity, received);
-        // A retained read can run after worker publication, before the awaiting host adopts it.
-        observeReader();
-      };
-    });
-  try {
-    await expect(
-      withOpenClawAgentDatabaseWrite(options, ({ db }) => {
-        expect(getAdmittedSqliteSchemaFacts(db)?.tables.has("late_reader_fixture")).toBe(true);
-        return db.prepare("SELECT COUNT(*) AS count FROM session_nodes").get()?.count;
-      }),
-    ).resolves.toBe(0);
-    expect(observeReader).toHaveBeenCalled();
-  } finally {
-    publication.mockRestore();
-    reader.database.close();
-  }
-});
-
 it("keeps a worker recreation private until its host creation claim joins native close", async () => {
   const env = { OPENCLAW_STATE_DIR: tempDirs.make("agent-admit-creation-") };
   const options = { agentId: "recreated", env };
@@ -368,169 +319,92 @@ it("recreates a closed database through its directory alias without revoking fre
   ).resolves.toBe(0);
 });
 
-it.each([
-  "eviction",
-  "additive-table",
-  "missing-index",
-  "alias",
-  "warm-additive-table",
-  "warm-missing-index",
-  "warm-rollback",
-  "foreign-missing-index",
-  "idle-missing-index",
-  "idle-revoked",
-] as const)("readmits a host handle with its retained worker after %s", async (change) => {
-  const options = {
-    agentId: "main",
-    env: { OPENCLAW_STATE_DIR: tempDirs.make("agent-retained-readmission-") },
-  };
-  openOpenClawStateDatabase({ env: options.env });
-  let retainedExecution = captureOpenClawAgentDatabaseExecution(options);
-  try {
-    const database = await withOpenClawAgentDatabaseWrite(options, (opened) => {
-      opened.db.exec("INSERT INTO auth_profile_state VALUES ('retained', '{}', 1)");
-      if (change.endsWith("additive-table")) {
-        opened.db.exec("CREATE TABLE coldadmit_fixture(value TEXT)");
-      } else if (change.endsWith("missing-index") && !change.startsWith("foreign-")) {
-        opened.db.exec("DROP INDEX idx_agent_cache_expiry");
-      } else if (change === "warm-rollback") {
-        opened.db.exec("BEGIN; CREATE TABLE rolled_back_fixture(value TEXT); ROLLBACK;");
-      }
-      return opened;
-    });
-    let nativeClaim = retainedExecution.captureGenerationClaim();
-    const revokedProof =
-      change === "idle-revoked" ? getOpenClawAgentDatabaseValidation(database) : undefined;
-    if (change.startsWith("idle-")) {
-      const incarnation = nativeClaim.incarnation;
-      await retainedExecution.release();
-      await withOpenClawAgentDatabaseWrite({ ...options, agentId: "sibling" }, () => undefined);
-      if (change === "idle-revoked") {
-        expect(revokedProof).toBeDefined();
-        invalidateOpenClawAgentDatabaseValidation(database.path);
-        expect(getOpenClawAgentDatabaseValidation(database)).toBeUndefined();
-      }
-      retainedExecution = captureOpenClawAgentDatabaseExecution(options);
-      nativeClaim = retainedExecution.captureGenerationClaim();
-      expect(nativeClaim.incarnation).toBe(incarnation);
-    }
-    const acquisitionPath =
-      change === "alias"
-        ? path.join(options.env.OPENCLAW_STATE_DIR, "alias.sqlite")
-        : database.path;
-    if (change === "alias") {
-      fs.symlinkSync(database.path, acquisitionPath);
-    }
-    if (!change.startsWith("warm-")) {
-      closeCachedOpenClawAgentDatabase(database);
-    }
-    expect(database.db.isOpen).toBe(change.startsWith("warm-"));
-    if (change === "foreign-missing-index") {
-      const foreign = openNodeSqliteDatabase(database.path);
-      try {
-        foreign.exec("DROP INDEX idx_agent_cache_expiry");
-      } finally {
-        foreign.close();
-      }
-    }
-    nativeClaim.assertCurrent();
-    const observed = observeCallerSchemaInspections(database.path, acquisitionPath);
-    let prepareRequests = 0;
-    const unsubscribe = onInternalDiagnosticEvent(
-      (event) => {
-        if (
-          event.type === "worker.request" &&
-          event.requestClass === "database.prepareWrite" &&
-          event.phase === "queued"
-        ) {
-          prepareRequests++;
-        }
-      },
-      { include: ["worker.request"] },
-    );
+it.each(["eviction", "alias", "warm-rollback"] as const)(
+  "reuses admitted storage with its retained worker after %s",
+  async (change) => {
+    const options = {
+      agentId: "main",
+      env: { OPENCLAW_STATE_DIR: tempDirs.make("agent-retained-readmission-") },
+    };
+    openOpenClawStateDatabase({ env: options.env });
+    const retainedExecution = captureOpenClawAgentDatabaseExecution(options);
     try {
-      const count = await withOpenClawAgentDatabaseWrite(
-        { ...options, path: acquisitionPath },
-        (reopened) => {
-          const facts = expectAdmittedSchemaObjects(reopened.db);
-          expect(facts?.tables.has("coldadmit_fixture")).toBe(change.endsWith("additive-table"));
-          expect(facts?.tables.has("session_key_contract")).toBe(true);
-          expect(facts?.tables.has("rolled_back_fixture")).toBe(false);
-          expect(facts?.indexes).toContain("idx_agent_cache_expiry");
-          expect(
-            reopened.db
-              .prepare(
-                "UPDATE auth_profile_state SET updated_at=updated_at+1 WHERE state_key='retained' RETURNING updated_at",
-              )
-              .get()?.updated_at,
-          ).toBe(2);
-          return reopened.db.prepare("SELECT COUNT(*) AS count FROM session_nodes").get()?.count;
-        },
-      );
-      expect(count).toBe(0);
-      if (revokedProof) {
-        expect(Atomics.load(new Int32Array(revokedProof.valid), 0)).toBe(0);
-        const readmitted = getOpenClawAgentDatabaseValidationForTransfer({
-          agentId: options.agentId,
-          path: database.path,
-        });
-        expect(readmitted).toBeDefined();
-        expect(Atomics.load(new Int32Array(readmitted!.valid), 0)).toBe(1);
-        expect(readmitted!.valid).not.toBe(revokedProof.valid);
+      const database = await withOpenClawAgentDatabaseWrite(options, (opened) => {
+        opened.db.exec("INSERT INTO auth_profile_state VALUES ('retained', '{}', 1)");
+        if (change === "warm-rollback") {
+          opened.db.exec("BEGIN; CREATE TABLE rolled_back_fixture(value TEXT); ROLLBACK;");
+        }
+        return opened;
+      });
+      const nativeClaim = retainedExecution.captureGenerationClaim();
+      const acquisitionPath =
+        change === "alias"
+          ? path.join(options.env.OPENCLAW_STATE_DIR, "alias.sqlite")
+          : database.path;
+      if (change === "alias") {
+        fs.symlinkSync(database.path, acquisitionPath);
       }
+      if (!change.startsWith("warm-")) {
+        closeCachedOpenClawAgentDatabase(database);
+      }
+      expect(database.db.isOpen).toBe(change.startsWith("warm-"));
       nativeClaim.assertCurrent();
-      expect(observed.inspections).toEqual([]);
-      if (change === "eviction") {
-        expect(prepareRequests).toBe(0);
-      }
-      if (change === "foreign-missing-index") {
-        prepareRequests = 0;
-        const repaired = await withOpenClawAgentDatabaseWrite(options, (opened) => opened);
-        closeCachedOpenClawAgentDatabase(repaired);
-        await expect(
-          withOpenClawAgentDatabaseWrite(
-            options,
-            ({ db }) =>
-              db
-                .prepare("SELECT updated_at FROM auth_profile_state WHERE state_key='retained'")
+      const observed = observeCallerSchemaInspections(database.path, acquisitionPath);
+      let prepareRequests = 0;
+      const unsubscribe = onInternalDiagnosticEvent(
+        (event) => {
+          if (
+            event.type === "worker.request" &&
+            event.requestClass === "database.prepareWrite" &&
+            event.phase === "queued"
+          ) {
+            prepareRequests++;
+          }
+        },
+        { include: ["worker.request"] },
+      );
+      try {
+        const count = await withOpenClawAgentDatabaseWrite(
+          { ...options, path: acquisitionPath },
+          (reopened) => {
+            const facts = expectAdmittedSchemaObjects(reopened.db);
+            expect(facts?.tables.has("session_key_contract")).toBe(true);
+            expect(facts?.tables.has("rolled_back_fixture")).toBe(false);
+            expect(facts?.indexes).toContain("idx_agent_cache_expiry");
+            expect(
+              reopened.db
+                .prepare(
+                  "UPDATE auth_profile_state SET updated_at=updated_at+1 WHERE state_key='retained' RETURNING updated_at",
+                )
                 .get()?.updated_at,
-          ),
-        ).resolves.toBe(2);
-        expect(prepareRequests).toBe(0);
+            ).toBe(2);
+            return reopened.db.prepare("SELECT COUNT(*) AS count FROM session_nodes").get()?.count;
+          },
+        );
+        expect(count).toBe(0);
+        nativeClaim.assertCurrent();
+        expect(observed.inspections).toEqual([]);
+        if (change === "eviction") {
+          expect(prepareRequests).toBe(0);
+        }
+      } finally {
+        unsubscribe();
+        observed.restore();
       }
     } finally {
-      unsubscribe();
-      observed.restore();
+      await retainedExecution.release();
     }
-    if (change.endsWith("missing-index")) {
-      const inspector = openNodeSqliteDatabase(database.path, { readOnly: true });
-      try {
-        expect(
-          inspector
-            .prepare("SELECT sql FROM sqlite_schema WHERE name='idx_agent_cache_expiry'")
-            .get()?.sql,
-        ).toMatch(
-          /^CREATE INDEX idx_agent_cache_expiry\s+ON cache_entries\(scope, expires_at, key\)\s+WHERE expires_at IS NOT NULL$/,
-        );
-      } finally {
-        inspector.close();
-      }
-    }
-  } finally {
-    await retainedExecution.release();
-  }
-});
+  },
+);
 
 it.each([
   { change: "schema", retainWorker: false },
   { change: "owner", retainWorker: false },
   { change: "replacement", retainWorker: false },
   { change: "damage", retainWorker: false },
-  { change: "schema", retainWorker: true },
   { change: "owner", retainWorker: true },
   { change: "metadata-version", retainWorker: true },
   { change: "metadata-missing", retainWorker: true },
-  { change: "warm-schema", retainWorker: true },
 ] as const)(
   "refuses $change drift at worker admission with retained worker=$retainWorker",
   async ({ change, retainWorker }) => {
@@ -544,11 +418,7 @@ it.each([
     try {
       const database = await withOpenClawAgentDatabaseWrite(options, (opened) => opened);
       const pathname = database.path;
-      if (change === "warm-schema") {
-        database.db.exec(
-          "ALTER TABLE auth_profile_state RENAME COLUMN state_json TO drifted_state_json",
-        );
-      } else if (retainedExecution) {
+      if (retainedExecution) {
         closeCachedOpenClawAgentDatabase(database);
       } else {
         await closeOpenClawAgentDatabasesAsync();
@@ -569,7 +439,7 @@ it.each([
       if (change === "damage") {
         revokeSqliteDatabaseAdmissionsForPath(pathname);
         fs.writeFileSync(pathname, "damaged SQLite fixture");
-      } else if (change !== "warm-schema") {
+      } else {
         const editor = openNodeSqliteDatabase(pathname);
         try {
           const schemaBefore = metadataChange
@@ -613,8 +483,8 @@ it.each([
   },
 );
 
-it.each(["once", "always", "source-revoked", "after-entry"] as const)(
-  "recovers schema publication before execution without replaying admitted work: %s",
+it.each(["source-revoked", "after-entry"] as const)(
+  "refuses schema publication or execution without replaying work: %s",
   async (failure) => {
     const options = {
       agentId: "main",
@@ -651,12 +521,8 @@ it.each(["once", "always", "source-revoked", "after-entry"] as const)(
       const publish = capture(target);
       return (identity, received) => {
         publications += 1;
-        if (failure !== "after-entry" && (failure === "always" || publications === 1)) {
-          // Revoke actual captured proof at the worker-to-host publication boundary.
-          validationCache.invalidateOpenClawAgentDatabaseValidation(target.path);
-          if (failure === "source-revoked") {
-            current = false;
-          }
+        if (failure === "source-revoked") {
+          current = false;
         }
         publish(identity, received);
       };
@@ -669,19 +535,13 @@ it.each(["once", "always", "source-revoked", "after-entry"] as const)(
     });
     try {
       const result = execution.runExisting(source, operation);
-      if (failure === "once") {
-        await expect(result).resolves.toBe("executed");
-        expect(operation).toHaveBeenCalledTimes(1);
-        expect(publications).toBe(2);
-      } else {
-        await expect(result).rejects.toThrow(
-          failure === "source-revoked"
-            ? "Fixture request authority revoked"
-            : "Agent schema admission changed before publication",
-        );
-        expect(operation).toHaveBeenCalledTimes(failure === "after-entry" ? 1 : 0);
-        expect(publications).toBe(failure === "always" ? 2 : 1);
-      }
+      await expect(result).rejects.toThrow(
+        failure === "source-revoked"
+          ? "Fixture request authority revoked"
+          : "Agent schema admission changed before publication",
+      );
+      expect(operation).toHaveBeenCalledTimes(failure === "after-entry" ? 1 : 0);
+      expect(publications).toBe(1);
       expect(`file:${execution.fileIdentity?.physicalIdentity}`).toBe(expectedIdentity.key);
     } finally {
       await execution.release();

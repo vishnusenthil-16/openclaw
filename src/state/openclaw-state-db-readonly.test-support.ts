@@ -45,8 +45,14 @@ export function createReadWorkerFixture(
     captureOpenClawStateReadSource: () => ({
       createTransport: () => ({
         startRead: (source: OpenClawStateReadLocation, authority: OpenClawStateReadAuthority) =>
-          observeAsyncFixture(() => read(source, authority)),
-        startValidateFresh: () => observeAsyncFixture(async () => {}),
+          observeAsyncFixture(() => {
+            authority.assertCurrent();
+            return read(source, authority);
+          }),
+        startValidateFresh: (
+          _context: OpenClawStateReadLocation["context"],
+          authority: OpenClawStateReadAuthority,
+        ) => observeAsyncFixture(async () => authority.assertCurrent()),
         startClose: () => observeAsyncFixture(close),
       }),
       own(service: () => void) {

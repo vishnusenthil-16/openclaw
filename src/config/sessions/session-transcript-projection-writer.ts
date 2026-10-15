@@ -68,7 +68,6 @@ export async function readTranscriptIndexBacklog(
   assertCurrent: () => void,
   signal: AbortSignal,
 ): Promise<ProjectionStatus> {
-  let traversal: ProjectionStatus["traversal"];
   while (true) {
     assertCurrent();
     const status = await drainTranscriptIndexStatus<ProjectionStatus>(async () => {
@@ -78,9 +77,8 @@ export async function readTranscriptIndexBacklog(
         { signal },
       );
       return receipt?.value ?? { sessionIds: [], hasMore: false, traversalComplete: true };
-    }, traversal);
+    });
     assertCurrent();
-    traversal = status.traversal;
     if (!status.hasMore || status.traversalComplete) {
       return status;
     }

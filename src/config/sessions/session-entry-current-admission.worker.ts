@@ -1,5 +1,4 @@
 import type { DatabaseSync } from "node:sqlite";
-import { isDeepStrictEqual } from "node:util";
 import { assertExistingDatabaseIdentity } from "../../infra/sqlite-worker-identity.js";
 import {
   requestSqliteWorkerOperationAdmission,
@@ -179,16 +178,6 @@ export function requestSessionEntryCurrentAdmission(
       domainFacts: request.facts,
     };
     requestAdmission({ ...request, facts });
-    assertSessionEntryCurrentNativeSource(source, database);
-    // A writer receipt invalidates cached facts, not necessarily this session's ownership.
-    if (
-      !isDeepStrictEqual(
-        entry,
-        readSessionEntryCurrentFactsInDatabase(database, source.sessionKey, options.lookup, source),
-      )
-    ) {
-      throw new Error("Session currency changed while awaiting its native grant");
-    }
   };
   if (options.database?.path === source.path) {
     admit(options.database);
@@ -204,7 +193,7 @@ export function requestSessionEntryCurrentAdmission(
   }
 }
 
-/** Keep every original source live through the common grant and recheck each after it settles. */
+/** Supply each original source's current facts to the common grant. */
 export function requestSessionEntriesCurrentAdmission(
   sources: readonly SessionEntryCurrentSource[] | undefined,
   request: SqliteWorkerAdmissionRequest,

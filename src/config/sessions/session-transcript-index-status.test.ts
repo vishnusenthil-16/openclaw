@@ -24,10 +24,7 @@ import {
   maintainSessionTranscriptIndexStatus,
 } from "./session-transcript-index-status.worker.js";
 import { sessionTranscriptIndexNeedsReconcile } from "./session-transcript-index.js";
-import {
-  bindSqliteWorkerBackend,
-  type TranscriptProjectionPublicationOperations,
-} from "./session-transcript-projection-publication.worker.js";
+import { bindSqliteWorkerBackend } from "./session-transcript-projection-publication.worker.js";
 
 const siblingRevision = vi.hoisted(() => ({ unknown: false }));
 vi.mock("../../infra/sqlite-database-admission.js", async (importOriginal) => {
@@ -78,12 +75,7 @@ function maintain(db: DatabaseSync) {
   if (isSessionTranscriptIndexStatusClean(db)) {
     return { sessionIds: [], hasMore: false, traversalComplete: true };
   }
-  return withoutTraversal(transaction(db, () => maintainSessionTranscriptIndexStatus(db)));
-}
-
-function withoutTraversal(result: ReturnType<typeof maintainSessionTranscriptIndexStatus>) {
-  const { traversal: _traversal, ...status } = result;
-  return status;
+  return transaction(db, () => maintainSessionTranscriptIndexStatus(db));
 }
 
 function transaction<T>(db: DatabaseSync, run: () => T): T {
@@ -257,8 +249,7 @@ it("rolls back admission and pending facts with raw writes, including nested sav
       }),
     ).toThrow("cancel append");
     const restored = maintainSessionTranscriptIndexStatus(db);
-    expect(restored.traversal?.completedTraversals).toBe(1);
-    expect(withoutTraversal(restored)).toEqual({
+    expect(restored).toEqual({
       sessionIds: [],
       hasMore: false,
       traversalComplete: true,
@@ -406,20 +397,11 @@ it("reaches a late dirty session while the sibling write revision stays unknown"
   db.exec("UPDATE session_transcript_index_state SET needs_rebuild = 1 WHERE session_id = 'z-299'");
   siblingRevision.unknown = true;
   try {
-    // Mirrors the reconcile backlog loop: each pass resumes from the previous traversal.
-    let traversal: TranscriptProjectionPublicationOperations["preflight"]["output"]["traversal"];
-    for (let pass = 0; pass < 3; pass++) {
-      const status = await drainTranscriptIndexStatus(
-        async () => transaction(db, () => maintainSessionTranscriptIndexStatus(db)),
-        traversal,
-      );
-      if (status.traversalComplete) {
-        expect(status.sessionIds).toEqual(["z-299"]);
-        return;
-      }
-      traversal = status.traversal;
-    }
-    throw new Error("Backlog traversal never reached the late dirty session");
+    const status = await drainTranscriptIndexStatus(async () =>
+      transaction(db, () => maintainSessionTranscriptIndexStatus(db)),
+    );
+    expect(status.sessionIds).toEqual(["z-299"]);
+    expect(status.traversalComplete).toBe(true);
   } finally {
     siblingRevision.unknown = false;
   }

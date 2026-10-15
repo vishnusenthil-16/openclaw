@@ -453,14 +453,18 @@ function openStateReadConnectionResult(
   const db = native.database;
   let closed = false;
   let closing = false;
+  let snapshotReferences = 0;
+  const cleanupSnapshot = () => {
+    if (snapshot && snapshotReferences === 0 && !snapshot.cleanup()) {
+      throw new SnapshotCleanupIncompleteError("Shared-state snapshot cleanup is incomplete.");
+    }
+  };
   const database = {
     db,
     path: pathname,
     afterClose: (): undefined => {
       releaseToken?.();
-      if (snapshot && !snapshot.cleanup()) {
-        throw new SnapshotCleanupIncompleteError("Shared-state snapshot cleanup is incomplete.");
-      }
+      cleanupSnapshot();
       return undefined;
     },
   };
@@ -475,13 +479,26 @@ function openStateReadConnectionResult(
               }
             };
             assertCurrent();
+            const release = retainSnapshotTempDirectory(
+              snapshot.cleanupRoot ?? path.dirname(snapshot.location),
+            );
+            let released = false;
+            snapshotReferences++;
             return {
               location: snapshot.location,
               cleanupRoot: snapshot.cleanupRoot,
               assertCurrent,
-              release: retainSnapshotTempDirectory(
-                snapshot.cleanupRoot ?? path.dirname(snapshot.location),
-              ),
+              release() {
+                if (!released) {
+                  released = true;
+                  release();
+                  snapshotReferences--;
+                }
+                // Async reads can outlive their synchronous metadata scope.
+                if (closed) {
+                  cleanupSnapshot();
+                }
+              },
             };
           },
         }

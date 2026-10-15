@@ -140,7 +140,13 @@ describe("session state events", () => {
       { change: "metadata", key: child, field: "completionOwnerSessionKey", records: true },
       { change: "another session", key: watcher, field: "lifecycleRunId", records: true },
     ].flatMap(({ change, key, field, records }) =>
-      [1, 2].map((verdict) => ({ change, key, field, records, verdict })),
+      (change === "ownership" ? [1] : [1, 2]).map((verdict) => ({
+        change,
+        key,
+        field,
+        records,
+        verdict,
+      })),
     ),
   )(
     "records=$records after $change changes during native verdict $verdict",

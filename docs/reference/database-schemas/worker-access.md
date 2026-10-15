@@ -898,10 +898,11 @@ refusal certifies that no agent handle opened and admission cleanup succeeded.
 Admission failures during native open or schema refresh cannot carry that
 certificate; retirement keeps conservative validation and lease cleanup.
 
-Before caller work begins, the execution owner can reacquire a settled stale-schema
-refusal within its existing admission retry budget. It first retires the refused
-native generation and rechecks owner, request, and caller authority. Invalid
-receipts, failed cleanup, and entered operations are never replayed by this recovery.
+Agent executors admit schema, version, and journal facts when promoting a cold
+native handle. Warm operations consume those process-owned facts without
+re-admitting the same handle or replaying a schema-refused request. Migration and
+repair publish replacement facts. Bounded recovery from pre-entry writer
+contention remains; entered operations and failed cleanup are never replayed.
 
 Quarantine guards load each target pathname's decision once and consume committed
 record/clear postimages through the existing database-fact transport. Absence is
@@ -1024,6 +1025,12 @@ custody; it does not replace an awaited effect check. The never-stable
 `captureSessionEntryCurrentCheck` facade and its synchronous callback preparation
 path are removed. Incognito callers use the awaited actor operations and
 memory-held authority.
+
+After the host grants a current-entry effect, the worker uses that selected
+projection without rereading and comparing it after the callback returns. The
+next effect evaluates current facts again. Unsupported synchronous metadata
+changes inside the final grant callback may therefore use the already-selected
+facts; ordinary subsequent commits and security checks remain current.
 
 History readers can borrow existing physical and session admission without an
 open host reader. The receiving scope checks its actual file and the live receipt;
@@ -3287,6 +3294,19 @@ replacement requires first admission for the replacement; revoked integrity
 requires recovery through its existing owner. The physical store's schema owner
 is fixed at admission; live session ownership and permissions still use their
 current-row checks.
+
+Transcript-index status uses one bounded cursor and its connection-local pending
+queue. A writer receipt can start a new scan after the current cursor reaches
+its end, but never restarts an unfinished traversal. A plain completion flag
+replaces cross-request traversal counters and schema-generation comparisons.
+Each pass still bounds candidate and orphan work; continuously changing writes
+need not become quiet before discovered work can be reconciled.
+
+Retained agent validation no longer watches directories or restats a pathname
+when a reader captures admitted facts. Receiving native opens and privileged
+writes still check the selected physical identity. An unsupported replacement
+outside the Gateway can leave the host's cached facts until their next use;
+those facts cannot admit the replacement file as the old physical store.
 
 The same admission records the database's text encoding alongside its version.
 Transcript payload preparation consumes that published encoding, including across

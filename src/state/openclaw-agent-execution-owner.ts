@@ -15,10 +15,7 @@ import { getGatewayRestartDrainSignal } from "../process/gateway-work-admission.
 import { createDeferredCore } from "../shared/deferred.js";
 import { notifyListeners } from "../shared/listeners.js";
 import * as creationClaims from "./agent-creation-claim.js";
-import {
-  AgentDatabaseExecutionAdmissionClosedError,
-  AgentDatabaseSchemaAdmissionChangedError,
-} from "./agent-database-admission-error.js";
+import { AgentDatabaseExecutionAdmissionClosedError } from "./agent-database-admission-error.js";
 import { captureAgentDatabaseAdmission } from "./agent-database-admission.js";
 import {
   assertAgentDeletionExecutionCleanupAccess,
@@ -206,7 +203,6 @@ export function createAgentDatabaseExecution(
     creatingTarget?: DatabasePathIdentity,
     signal?: AbortSignal,
     contentionDeadline?: number,
-    schemaReadmitted = false,
   ): Promise<T | undefined> {
     const pending = agentDatabaseLifecycle.pending.get(pathname);
     if (pending) {
@@ -273,12 +269,7 @@ export function createAgentDatabaseExecution(
     } catch (error) {
       const nativeFailure = current.failure();
       const contended = !entered && isSqliteLockError(error);
-      const schemaChanged =
-        !entered &&
-        !schemaReadmitted &&
-        nativeFailure !== "native" &&
-        error instanceof AgentDatabaseSchemaAdmissionChangedError;
-      if (generation === current && (nativeFailure || retireNativeOnFailure || schemaChanged)) {
+      if (generation === current && (nativeFailure || retireNativeOnFailure)) {
         try {
           if (nativeFailure === "native" && !contended && !nativeClosing) {
             reportTerminal(error);
@@ -295,25 +286,6 @@ export function createAgentDatabaseExecution(
             error,
           );
         }
-      }
-      if (schemaChanged) {
-        // Fresh proof can recover a refused publication; an entered operation is never replayed.
-        assertCurrent();
-        source.assertCurrent();
-        assertCallerCurrent();
-        signal?.throwIfAborted();
-        return run(
-          source,
-          operation,
-          assertCallerCurrent,
-          expectedIdentity,
-          retireNativeOnFailure,
-          createIfMissing,
-          creatingTarget,
-          signal,
-          contentionDeadline,
-          true,
-        );
       }
       if (contended) {
         const deadline =
@@ -342,7 +314,6 @@ export function createAgentDatabaseExecution(
             creatingTarget,
             signal,
             deadline,
-            schemaReadmitted,
           );
         }
       }

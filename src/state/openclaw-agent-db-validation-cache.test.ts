@@ -60,22 +60,6 @@ import {
 } from "./openclaw-agent-db.js";
 import { runOpenClawAgentWriteAdmission } from "./openclaw-agent-write-admission.js";
 
-const observedValidationDirectories = vi.hoisted(
-  () => [] as Array<{ directory: string; notify: (filename?: string) => void; active: boolean }>,
-);
-// mock-isolation: Drive identity invalidation deterministically without native watcher timing.
-vi.mock("../infra/owned-directory-observation.js", () => ({
-  observeOwnedDirectory(directory: string, notify: (filename?: string) => void) {
-    const observer = { directory, notify, active: true };
-    observedValidationDirectories.push(observer);
-    return {
-      close: () => {
-        observer.active = false;
-      },
-    };
-  },
-}));
-
 async function withReceiptFixture(
   populated: boolean,
   run: (
@@ -101,66 +85,33 @@ async function withReceiptFixture(
 }
 
 describe("canonical proof on physical database validation", () => {
-  it.each(["observation", "reader admission"] as const)(
-    "retains read validation across native close and detects replacement through %s",
-    async (invalidation) => {
-      await withReceiptFixture(false, (database) => {
-        const captured = captureOpenClawAgentDatabaseReadValidation(database);
-        expect(captured?.canonicalPath).toBe(database.path);
-        const realpath = vi.spyOn(fs.realpathSync, "native");
-        const stat = vi.spyOn(fs, "statSync");
+  it("retains read validation across native close without repeated path inspection", async () => {
+    await withReceiptFixture(false, (database) => {
+      const captured = captureOpenClawAgentDatabaseReadValidation(database);
+      expect(captured?.canonicalPath).toBe(database.path);
+      const realpath = vi.spyOn(fs.realpathSync, "native");
+      const stat = vi.spyOn(fs, "statSync");
+      syncBuiltinESMExports();
+      try {
+        const warm = captureOpenClawAgentDatabaseReadValidation(database);
+        expect(warm?.validation.receiptId).toBe(captured?.validation.receiptId);
+        captured!.assertCurrent();
+        warm!.assertCurrent();
+        expect(realpath).not.toHaveBeenCalled();
+        expect(stat).not.toHaveBeenCalled();
+      } finally {
+        realpath.mockRestore();
+        stat.mockRestore();
         syncBuiltinESMExports();
-        try {
-          const warm = captureOpenClawAgentDatabaseReadValidation(database);
-          expect(warm?.validation.receiptId).toBe(captured?.validation.receiptId);
-          captured!.assertCurrent();
-          warm!.assertCurrent();
-          expect(realpath).not.toHaveBeenCalled();
-          expect(stat).not.toHaveBeenCalled();
-        } finally {
-          realpath.mockRestore();
-          stat.mockRestore();
-          syncBuiltinESMExports();
-        }
-        closeOpenClawAgentDatabaseByPath(database.path);
-        expect(
-          observedValidationDirectories.some(
-            (observer) => observer.active && observer.directory === path.dirname(database.path),
-          ),
-        ).toBe(true);
-        expect(captureOpenClawAgentDatabaseReadValidation(database)?.validation.receiptId).toBe(
-          captured?.validation.receiptId,
-        );
-        const replacement = `${database.path}.replacement`;
-        fs.copyFileSync(database.path, replacement);
-        fs.renameSync(replacement, database.path);
-        expect(Atomics.load(new Int32Array(captured!.validation.valid), 0)).toBe(1);
-        expect(captureOpenClawAgentDatabaseReadValidation(database)?.validation.receiptId).toBe(
-          captured?.validation.receiptId,
-        );
-        if (invalidation === "reader admission") {
-          expect(captureOpenClawAgentDatabaseReadValidation(database, "admission")).toBeUndefined();
-        } else {
-          for (const observer of observedValidationDirectories) {
-            if (observer.active && observer.directory === path.dirname(database.path)) {
-              observer.notify(path.basename(database.path));
-            }
-          }
-        }
-        expect(() => captured!.assertCurrent()).toThrow(
-          "Session reader validation is no longer current",
-        );
-        expect(Atomics.load(new Int32Array(captured!.validation.valid), 0)).toBe(0);
-        expect(
-          observedValidationDirectories.some(
-            (observer) => observer.active && observer.directory === path.dirname(database.path),
-          ),
-        ).toBe(false);
-      });
-    },
-  );
+      }
+      closeOpenClawAgentDatabaseByPath(database.path);
+      expect(captureOpenClawAgentDatabaseReadValidation(database)?.validation.receiptId).toBe(
+        captured?.validation.receiptId,
+      );
+    });
+  });
 
-  it("rejects a replaced file at receiver and queued write admission before observation", async () => {
+  it("rejects a replaced file at receiver and queued write admission", async () => {
     await withReceiptFixture(false, async (database, options) => {
       const captured = captureOpenClawAgentDatabaseReadValidation(database)!;
       closeOpenClawAgentDatabaseByPath(database.path);
