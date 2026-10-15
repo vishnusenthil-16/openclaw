@@ -46,8 +46,8 @@ it("launches read-only workers from retained code after removing the loaded pack
   const worker = `
 import { fileURLToPath } from "node:url";
 const location = fileURLToPath(import.meta.url);
-const result = mode => mode === "file-generation"
-  ? { ok: true, generation: "retained-file-generation" } : { ok: true, location };
+const result = mode => mode === "content-version"
+  ? { ok: true, contentVersion: "a".repeat(64) } : { ok: true, location };
 if (process.argv[3] === "session") {
   process.on("message", message => {
     if (message === "close") process.disconnect();
@@ -70,9 +70,7 @@ if (process.argv[3] === "session") {
         await runSqliteReadOnlyWorker(base, { mode: "async" }),
         await request(),
       );
-      expect(runSqliteReadOnlyWorkerSync(base, undefined, "file-generation")).toBe(
-        "retained-file-generation",
-      );
+      expect(runSqliteReadOnlyWorkerSync(base, undefined, "content-version")).toBe("a".repeat(64));
       for (const workerPath of retainedPaths) {
         expect(workerPath.startsWith(root + path.sep)).toBe(false);
       }

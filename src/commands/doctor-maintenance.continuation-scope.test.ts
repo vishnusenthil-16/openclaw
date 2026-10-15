@@ -58,7 +58,8 @@ it.each([true, false])(
     vi.stubEnv(UPDATE_RUN_ID_ENV, run.runId);
     const install = path.join(env.OPENCLAW_STATE_DIR, "install");
     fs.mkdirSync(install);
-    const copies = vi.spyOn(snapshots, "prepareSqliteReadOnlyLocationSync");
+    const observe = snapshots.readSqliteSourceContentVersionSync;
+    const hashes = vi.spyOn(snapshots, "readSqliteSourceContentVersionSync");
     const pluginDirectory = path.join(env.OPENCLAW_STATE_DIR, "plugin-data");
     fs.mkdirSync(pluginDirectory);
     for (let index = 0; index < 32; index++) {
@@ -123,6 +124,11 @@ it.each([true, false])(
             if (!keepWriter) {
               expect(isOpenClawStateDatabaseOpen(database)).toBe(false);
               const scope = getOpenClawDatabaseMaintenanceScope()!;
+              hashes.mockClear();
+              hashes.mockImplementation((pathname) => {
+                expect(hashes.mock.calls.length).toBeLessThanOrEqual(2);
+                return observe(pathname);
+              });
               const capture = await captureUpdateRecoveryBaseline({
                 runId: "doctor-plugin-capture",
                 installRoot: install,
@@ -130,7 +136,8 @@ it.each([true, false])(
                 drivers: [],
                 assertCurrent: scope.assertAdmission,
                 acquisition: { mode: "maintenance-owner" },
-              });
+              }).finally(() => hashes.mockImplementation(observe));
+              expect(hashes.mock.calls.length).toBeLessThanOrEqual(2);
               const manifest = parseUpdateRecoveryBackupManifest(
                 fs.readFileSync(capture.ref.manifestPath, "utf8"),
               );
@@ -150,15 +157,16 @@ it.each([true, false])(
           },
         });
         expect(maintenance).toBeDefined();
-        copies.mockClear();
+        hashes.mockClear();
         maintenance!.run(() => listUpdateRuns({}, { env }, openDoctorStateSchemaReadAdmission));
         maintenance!.run(() => listUpdateRuns({}, { env }, openDoctorStateSchemaReadAdmission));
+        expect(hashes).not.toHaveBeenCalled();
         await maintenance!.release();
         maintenance = undefined;
-        copies.mockClear();
+        hashes.mockClear();
         // Released custody no longer lends its warm reader to a later cold inspection.
         resolveDoctorUpdateAdmission(env, run.runId).assertCurrent();
-        expect(copies).toHaveBeenCalled();
+        expect(hashes).toHaveBeenCalled();
       }
     } finally {
       await maintenance?.release();

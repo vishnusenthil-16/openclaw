@@ -419,3 +419,9 @@ export async function withSqliteSnapshotSource<T>(
     await prepared?.cleanupAsync();
   }
 }
+
+/** Fresh bytes without opening SQLite or making another durable private copy. */
+export function readSqliteSourceContentVersionSync(pathname: string): string | undefined {
+  // Raw descriptor closes stay in the child so the writer's native SQLite locks remain held.
+  return runSqliteReadOnlyWorkerSync(pathname, undefined, "content-version") || undefined;
+}

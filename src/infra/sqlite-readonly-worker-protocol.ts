@@ -13,6 +13,7 @@ export const SQLITE_READONLY_WORKER_MAX_BUFFER = 1024 * 1024;
 
 export type SqliteReadOnlyWorkerMode =
   | "sync"
+  | "content-version"
   | "file-generation"
   | "async"
   | "consolidated"
@@ -34,6 +35,7 @@ export function isSqliteSnapshotStagingMode(mode: unknown): boolean {
 
 export type SqliteReadOnlyWorkerResult =
   | { ok: true; location: string }
+  | { ok: true; contentVersion: string }
   | { ok: true; generation: string }
   | { ok: true; warnings: string[] }
   | { ok: false; message: string };
@@ -118,6 +120,10 @@ export function isSqliteReadOnlyWorkerResult(value: unknown): value is SqliteRea
   }
   return (
     (value.ok === true && "location" in value && typeof value.location === "string") ||
+    (value.ok === true &&
+      "contentVersion" in value &&
+      typeof value.contentVersion === "string" &&
+      /^(?:[a-f0-9]{64})?$/.test(value.contentVersion)) ||
     (value.ok === true && "generation" in value && typeof value.generation === "string") ||
     (value.ok === true &&
       "warnings" in value &&
@@ -161,7 +167,7 @@ function parseSqliteReadOnlyWorkerResult(
 
 export function readSqliteReadOnlyWorkerValue(
   params: SqliteReadOnlyWorkerOutput,
-  mode: "sync" | "async" | "consolidated" | "file-generation",
+  mode: "sync" | "async" | "consolidated" | "content-version" | "file-generation",
 ): string;
 export function readSqliteReadOnlyWorkerValue(
   params: SqliteReadOnlyWorkerOutput,
@@ -218,6 +224,9 @@ export function readSqliteReadOnlyWorkerValue(
     "location" in result
   ) {
     return result.location;
+  }
+  if (mode === "content-version" && "contentVersion" in result) {
+    return result.contentVersion;
   }
   if (mode === "file-generation" && "generation" in result) {
     return result.generation;
