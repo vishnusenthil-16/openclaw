@@ -200,9 +200,7 @@ function DiffStats(props: {
     </>
   );
   return (
-    <Show
-      when={typeof props.item.additions === "number" || typeof props.item.deletions === "number"}
-    >
+    <Show when={props.item.additions !== undefined || props.item.deletions !== undefined}>
       <Show when={props.onOpen} fallback={<span class="chat-pr__diff">{values()}</span>}>
         <button
           class="chat-pr__diff"
