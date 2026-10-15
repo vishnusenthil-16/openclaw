@@ -265,6 +265,7 @@ function normalizeActivationTrigger(trigger: PluginActivationPlannerTrigger): st
     case "capability":
       return trigger.capability;
   }
+  return trigger;
 }
 
 function listHasNormalizedValue(
