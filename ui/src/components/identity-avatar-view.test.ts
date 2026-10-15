@@ -382,11 +382,16 @@ describe("shared agent avatar view", () => {
     },
   );
 
-  it("recognizes a cached image at mount without waiting for another load event", async () => {
+  it("recognizes a cached image across reconnect without waiting for another load event", async () => {
     vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
     vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(32);
     const container = document.createElement("div");
-    render(renderAgentIdentityAvatar({ id: "cached", avatar: "/avatar/cached" }), container);
+    const part = render(
+      renderAgentIdentityAvatar({ id: "cached", avatar: "/avatar/cached" }),
+      container,
+    );
+    part.setConnected(false);
+    part.setConnected(true);
     await Promise.resolve();
     expect(
       container.querySelector(".identity-avatar--agent")?.classList.contains("is-pending"),

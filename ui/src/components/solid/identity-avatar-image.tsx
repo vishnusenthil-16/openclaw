@@ -14,6 +14,9 @@ export function setIdentityAvatarState(
   element: Element,
   state: "none" | "pending" | "loaded" | "failed",
 ) {
+  if (element.getAttribute("data-avatar-state") === state) {
+    return;
+  }
   element.setAttribute("data-avatar-state", state);
   element.classList.toggle("is-pending", state === "pending");
   element.classList.toggle("is-fallback", state === "none" || state === "failed");
@@ -66,13 +69,13 @@ export function bindIdentityAvatarImage(input: Accessor<IdentityAvatarImageProps
       if (!active) {
         return;
       }
-      if (image.getAttribute("src") !== url || !url) {
+      if (!url || image.getAttribute("src") !== url) {
         state(url ? "pending" : "failed");
-      }
-      if (url) {
-        image.setAttribute("src", url);
-      } else {
-        image.removeAttribute("src");
+        if (url) {
+          image.setAttribute("src", url);
+        } else {
+          image.removeAttribute("src");
+        }
       }
       // Lit can supply an image before inserting it into its wrapper; cached decodes emit no event.
       queueMicrotask(() =>
