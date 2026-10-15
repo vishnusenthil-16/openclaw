@@ -174,7 +174,7 @@ export async function prepareBundledDiscoveryMode(
       // Startup adopts this operation cache after releasing its private snapshot.
       // Private inspection must not replace an already live process fact.
       if (owner.kind === "operation") {
-        owner.preparedBundledDiscoveryModes.set(key, { value: { value, generation: owner } });
+        owner.preparedBundledDiscoveryModes.set(key, { value: { value } });
       }
     };
     activate();
@@ -194,8 +194,7 @@ export async function prepareBundledDiscoveryMode(
           );
       value = parseBundledDiscoveryMode(row ? JSON.parse(row.value_json) : undefined);
     }
-    // Keep the SDK-reachable fact shape without a separate invalidation generation.
-    return { value, generation: owner };
+    return { value };
   });
   const activate = () => {
     prepared.assertCurrent();

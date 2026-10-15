@@ -166,6 +166,7 @@ export async function prepareImmutableRecoveryRuntime(params: {
   };
   assertOwner();
   const destination = path.join(control, `recovery-${generation.sha}`);
+  let facts: Awaited<ReturnType<typeof verifyImmutableGeneration>>;
   if (!fsSync.lstatSync(destination, { throwIfNoEntry: false })) {
     const scratch = await fs.mkdtemp(path.join(control, ".recovery-prepare-"));
     const scratchIdentity = directoryIdentity(scratch);
@@ -184,9 +185,9 @@ export async function prepareImmutableRecoveryRuntime(params: {
       assertOwner();
       await sealImmutableGeneration(staged);
       assertOwner();
-      const prepared = await verifyImmutableGeneration(staged, generation.sha);
+      facts = await verifyImmutableGeneration(staged, generation.sha);
       assertOwner();
-      if (prepared.identity !== stagedIdentity || prepared.buildDigest !== generation.buildDigest) {
+      if (facts.identity !== stagedIdentity || facts.buildDigest !== generation.buildDigest) {
         throw new Error(
           "Independent immutable recovery copy differs from the invoking generation.",
         );
@@ -204,8 +205,9 @@ export async function prepareImmutableRecoveryRuntime(params: {
         fsSync.rmSync(scratch, { recursive: true });
       }
     }
+  } else {
+    facts = await verifyImmutableGeneration(destination, generation.sha);
   }
-  const facts = await verifyImmutableGeneration(destination, generation.sha);
   await assertImmutableGenerationControlVersion(destination, descriptor.version);
   assertOwner();
   if (facts.buildDigest !== generation.buildDigest) {

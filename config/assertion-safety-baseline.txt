@@ -2186,7 +2186,7 @@ src/media/audio-transcode.ts	1
 src/media/bounded-read-file.ts	2
 src/media/input-files.ts	1
 src/media/local-media-access.ts	1
-src/media/media-facts.ts	16
+src/media/media-facts.ts	14
 src/media/playback-transcode.ts	1
 src/media/store.remote.runtime.ts	1
 src/media/store.ts	1
@@ -2333,7 +2333,6 @@ src/plugins/manifest.ts	2
 src/plugins/marketplace.ts	6
 src/plugins/memory-runtime.ts	1
 src/plugins/native-module-require.ts	2
-src/plugins/official-external-provider-endpoints.ts	1
 src/plugins/openai-compatible-embedding-provider.ts	1
 src/plugins/plugin-command-dispatch-contract.ts	1
 src/plugins/plugin-command-execution.ts	1

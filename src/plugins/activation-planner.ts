@@ -265,8 +265,6 @@ function normalizeActivationTrigger(trigger: PluginActivationPlannerTrigger): st
     case "capability":
       return trigger.capability;
   }
-  const unreachableTrigger: never = trigger;
-  return unreachableTrigger;
 }
 
 function listHasNormalizedValue(

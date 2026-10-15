@@ -27,7 +27,7 @@ export type RestartAuditInfo = {
 };
 
 function summarizeChangedPaths(paths: string[] | undefined): string | null {
-  if (!Array.isArray(paths) || paths.length === 0) {
+  if (!paths?.length) {
     return null;
   }
   const head = paths.slice(0, 6).join(",");
@@ -35,11 +35,9 @@ function summarizeChangedPaths(paths: string[] | undefined): string | null {
 }
 
 export function formatRestartAudit(audit: RestartAuditInfo | undefined): string {
-  const actor = typeof audit?.actor === "string" && audit.actor.trim() ? audit.actor.trim() : null;
-  const deviceId =
-    typeof audit?.deviceId === "string" && audit.deviceId.trim() ? audit.deviceId.trim() : null;
-  const clientIp =
-    typeof audit?.clientIp === "string" && audit.clientIp.trim() ? audit.clientIp.trim() : null;
+  const actor = audit?.actor?.trim() || null;
+  const deviceId = audit?.deviceId?.trim() || null;
+  const clientIp = audit?.clientIp?.trim() || null;
   const changed = summarizeChangedPaths(audit?.changedPaths);
   const fields = [
     actor && `actor=${actor}`,

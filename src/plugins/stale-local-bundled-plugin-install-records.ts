@@ -22,10 +22,10 @@ function primaryInstallRecordPath(record: PluginInstallRecord): {
   field: "installPath" | "sourcePath";
   path: string;
 } | null {
-  if (typeof record.installPath === "string" && record.installPath.trim()) {
+  if (record.installPath?.trim()) {
     return { field: "installPath", path: record.installPath };
   }
-  if (typeof record.sourcePath === "string" && record.sourcePath.trim()) {
+  if (record.sourcePath?.trim()) {
     return { field: "sourcePath", path: record.sourcePath };
   }
   return null;

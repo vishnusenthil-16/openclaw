@@ -480,12 +480,10 @@ export function createPluginPackageMetadataCapture(params: {
       }
       const sourceMetadata = params.sourceForCaptured(metadata)!;
       const packageExports = manifest.exports;
+      const exportRecord = asOptionalRecord(packageExports);
       const exportMap =
-        packageExports &&
-        typeof packageExports === "object" &&
-        !Array.isArray(packageExports) &&
-        Object.keys(packageExports).some((key) => key.startsWith("."))
-          ? (asOptionalRecord(packageExports) ?? {})
+        exportRecord && Object.keys(exportRecord).some((key) => key.startsWith("."))
+          ? exportRecord
           : { ".": packageExports };
       const declarations = [
         ...Object.entries(asOptionalRecord(manifest.imports) ?? {}),

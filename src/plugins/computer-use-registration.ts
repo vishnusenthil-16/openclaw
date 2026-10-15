@@ -54,10 +54,10 @@ export function registerComputerUseProvider(
     } catch {
       throw new Error("COMPUTER_INVALID_REQUEST: params must be valid JSON");
     }
-    const executionId = isRecord(value) ? value.executionId : undefined;
-    if (executionId === undefined) {
-      return { executionId: undefined, value };
+    if (!isRecord(value) || value.executionId === undefined) {
+      return { executionId: undefined };
     }
+    const executionId = value.executionId;
     if (
       typeof executionId !== "string" ||
       !new RegExp(COMPUTER_EXECUTION_ID_PATTERN, "u").test(executionId)
@@ -212,7 +212,7 @@ export function registerComputerUseProvider(
       if (!envelope.executionId) {
         throw new Error("COMPUTER_INVALID_REQUEST: executionId is required");
       }
-      if (isRecord(envelope.value) && envelope.value.action === "__close_execution") {
+      if (envelope.value.action === "__close_execution") {
         const reason = envelope.value.reason;
         await closeExecution(
           envelope.executionId,

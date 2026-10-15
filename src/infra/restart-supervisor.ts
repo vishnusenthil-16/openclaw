@@ -1,5 +1,5 @@
 // Platform adapter for a restart already authorized by the restart owner.
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -13,33 +13,15 @@ import { relaunchGatewayScheduledTask } from "./windows-task-restart.js";
 const SPAWN_TIMEOUT_MS = 2000;
 const LAUNCHCTL_ALREADY_LOADED_EXIT_CODE = 37;
 
-function formatSpawnDetail(result: {
-  error?: unknown;
-  status?: number | null;
-  stdout?: string | Buffer | null;
-  stderr?: string | Buffer | null;
-}): string {
-  const clean = (value: string | Buffer | null | undefined) => {
-    const text = typeof value === "string" ? value : value ? value.toString() : "";
-    return text.replace(/\s+/g, " ").trim();
-  };
+function formatSpawnDetail(result: SpawnSyncReturns<string>): string {
+  const clean = (value: string | null | undefined) => value?.replace(/\s+/g, " ").trim() ?? "";
   if (result.error) {
-    if (result.error instanceof Error) {
-      return result.error.message;
-    }
-    if (typeof result.error === "string") {
-      return result.error;
-    }
-    try {
-      return JSON.stringify(result.error);
-    } catch {
-      return "unknown error";
-    }
+    return result.error.message;
   }
   return (
     clean(result.stderr) ||
     clean(result.stdout) ||
-    (typeof result.status === "number" ? `exit ${result.status}` : "unknown error")
+    (result.status !== null ? `exit ${result.status}` : "unknown error")
   );
 }
 

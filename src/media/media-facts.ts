@@ -42,6 +42,7 @@ export type MediaFactInput = {
 };
 
 const RUNTIME_PROMPT_MEDIA_FACTS = Symbol.for("openclaw.runtimePromptMediaFacts");
+type RuntimePromptMediaFacts = MediaFact[] & { imageOrder?: PromptImageOrderEntry[] };
 
 /** Attaches facts to a runtime prompt message without changing serialized/model-visible bytes. */
 export function attachRuntimePromptMediaFacts<T extends object>(
@@ -61,8 +62,9 @@ export function attachRuntimePromptMediaFacts<T extends object>(
 }
 
 export function readRuntimePromptMediaFacts(message: object): MediaFact[] | undefined {
-  const media = (message as Record<PropertyKey, unknown>)[RUNTIME_PROMPT_MEDIA_FACTS];
-  return Array.isArray(media) ? (media as MediaFact[]) : undefined;
+  return (message as { [RUNTIME_PROMPT_MEDIA_FACTS]?: RuntimePromptMediaFacts })[
+    RUNTIME_PROMPT_MEDIA_FACTS
+  ];
 }
 
 /** Reads the canonical persisted media envelope without consulting legacy top-level fields. */
@@ -255,12 +257,7 @@ export function stripLegacyMediaContextFields(ctx: Record<string, unknown>): voi
 }
 
 export function readRuntimePromptImageOrder(message: object): PromptImageOrderEntry[] | undefined {
-  const imageOrder = (
-    readRuntimePromptMediaFacts(message) as
-      | (MediaFact[] & { imageOrder?: PromptImageOrderEntry[] })
-      | undefined
-  )?.imageOrder;
-  return Array.isArray(imageOrder) ? (imageOrder as PromptImageOrderEntry[]) : undefined;
+  return (readRuntimePromptMediaFacts(message) as RuntimePromptMediaFacts | undefined)?.imageOrder;
 }
 
 /** Returns whether a declared MIME only describes otherwise unclassified binary bytes. */

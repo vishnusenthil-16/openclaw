@@ -1,4 +1,3 @@
-import { isRecord as isPlainRecord } from "@openclaw/normalization-core/record-coerce";
 import type {
   WorkerWriteOperationContext,
   WorkerOperationHandlers,
@@ -218,8 +217,8 @@ export const restartSentinelOperations = {
       }
 
       const payload = current.sentinel.payload;
-      const stats = payload.stats ? { ...payload.stats } : {};
-      const after = isPlainRecord(stats.after) ? { ...stats.after } : {};
+      const stats = (payload.stats ??= {});
+      const after = (stats.after ??= {});
       let changed = false;
       if (after.version !== version) {
         after.version = version;
@@ -230,7 +229,7 @@ export const restartSentinelOperations = {
         changed = true;
       }
 
-      const before = isPlainRecord(stats.before) ? stats.before : {};
+      const before = stats.before ?? {};
       const beforeSha = typeof before.sha === "string" ? before.sha.trim() : "";
       const expectedSha = typeof after.sha === "string" ? after.sha.trim() : "";
       const actualSha = commit?.trim() ?? "";
@@ -261,8 +260,6 @@ export const restartSentinelOperations = {
         changed = true;
       }
 
-      stats.after = after;
-      payload.stats = stats;
       const finalized = changed
         ? writeRestartSentinelRowIfRevisionSync(db, payload, current.sentinel.revision)
         : current.sentinel;

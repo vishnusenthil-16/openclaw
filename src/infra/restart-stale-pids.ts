@@ -242,7 +242,7 @@ function verifyWindowsGatewayArgv(pid: number, args: string[] | null): boolean {
 function filterVerifiedWindowsGatewayPids(rawPids: number[], protectedPid?: number): number[] {
   const excluded = getExcludedGatewayPidsSync(PROCESS_INSPECTION_TIMEOUT_MS, protectedPid);
   return uniqueValues(rawPids)
-    .filter((pid) => Number.isFinite(pid) && pid > 0 && !excluded.has(pid))
+    .filter((pid) => !excluded.has(pid))
     .filter((pid) => verifyWindowsGatewayArgv(pid, readWindowsProcessArgsSync(pid)));
 }
 
@@ -254,7 +254,7 @@ function filterVerifiedWindowsGatewayPidsResult(
   const excluded = getExcludedGatewayPidsSync(PROCESS_INSPECTION_TIMEOUT_MS, protectedPid);
   const verified: number[] = [];
   for (const pid of uniqueValues(rawPids)) {
-    if (!Number.isFinite(pid) || pid <= 0 || excluded.has(pid)) {
+    if (excluded.has(pid)) {
       continue;
     }
     const argsResult = processArgsResult(pid);

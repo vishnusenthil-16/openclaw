@@ -52,7 +52,6 @@ import {
 import {
   isRetiredManagedHandoffLeasePayload,
   parseManagedHandoffLeasePayload,
-  type ManagedHandoffLeaseAction,
   type HandoffProcessIdentity,
 } from "./update-managed-service-handoff-schema.js";
 import { createManagedHandoffScopeReader } from "./update-managed-service-handoff-scope.js";

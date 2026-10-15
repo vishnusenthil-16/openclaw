@@ -59,7 +59,6 @@ async function runRestartSentinelOperation<Key extends keyof RestartSentinelWork
   assertProducerCurrent?: () => void,
   decodeCommit?: (value: unknown) => RestartSentinelWorkerOperations[Key]["output"] | undefined,
 ): Promise<RestartSentinelWorkerOperations[Key]["output"]> {
-  const captured = structuredClone(command);
   const assertCurrent = () => {
     context.admission.assertCurrent();
     assertProducerCurrent?.();
@@ -74,7 +73,7 @@ async function runRestartSentinelOperation<Key extends keyof RestartSentinelWork
     try {
       const result = await runOpenClawStateWorkerOperation(
         context,
-        (scope) => scope.execute(captured),
+        (scope) => scope.execute(command),
         {
           assertCurrent,
           createAdmission: (operation) => {

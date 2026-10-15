@@ -90,7 +90,7 @@ export async function enqueuePluginNextTurnInjection(params: {
     return { enqueued: false, id: "", sessionKey };
   }
   const now = params.now ?? Date.now();
-  const injection = { ...params.injection };
+  const injection = params.injection;
   const record: PluginNextTurnInjectionRecord = {
     id: injection.idempotencyKey?.trim() || randomUUID(),
     pluginId: params.pluginId,

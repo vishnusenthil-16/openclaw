@@ -540,7 +540,7 @@ async function runBeforeInstallHook(params: {
 }
 
 function formatInstallPolicyOriginForHook(origin: InstallPolicyOrigin): string {
-  const type = typeof origin.type === "string" ? origin.type : "unknown";
+  const type = origin.type;
   if (type === "upload") {
     return "skill-upload";
   }

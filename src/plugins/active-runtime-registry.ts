@@ -3,6 +3,7 @@ import { resolvePluginLoadCacheContext } from "./loader-load-context.js";
 import type { PluginLoadOptions } from "./loader-types.js";
 import type { PluginManifestRecord } from "./manifest-registry.js";
 import { matchesPluginRuntimeArtifactSelection } from "./plugin-runtime-artifact-binding.js";
+import { pluginArrays } from "./registry-empty.js";
 import type { PluginRecord, PluginRegistry } from "./registry-types.js";
 import {
   getActivePluginRegistry,
@@ -77,22 +78,20 @@ export function registryContainsRuntimePluginIds(
   if (registry.plugins.some((plugin) => missing.has(plugin.id))) {
     return false;
   }
-  for (const [key, value] of Object.entries(registry)) {
-    if (key === "diagnostics" || key === "channelSetups" || !Array.isArray(value)) {
+  for (const key of [...pluginArrays, "httpRoutes"] as const) {
+    if (key === "channelSetups") {
       continue;
     }
-    for (const entry of value) {
-      if (entry && typeof entry === "object" && "pluginId" in entry) {
-        const pluginId = entry.pluginId;
-        if (typeof pluginId === "string" && pluginId.length > 0) {
-          if (pluginIds.length === 0) {
-            return false;
-          }
-          missing.delete(pluginId);
-          if (missing.size === 0) {
-            return true;
-          }
-        }
+    for (const { pluginId } of registry[key]) {
+      if (!pluginId) {
+        continue;
+      }
+      if (pluginIds.length === 0) {
+        return false;
+      }
+      missing.delete(pluginId);
+      if (missing.size === 0) {
+        return true;
       }
     }
   }

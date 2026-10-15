@@ -25,9 +25,10 @@ export function retireSessionDiagnosticLogs(): void {
   logGeneration += 1;
 }
 
-async function resolveSessionDiagnosticContext(
+async function withSessionDiagnosticContext(
   params: SessionDiagnosticTarget,
-): Promise<SessionDiagnosticContext> {
+  consume: (context: SessionDiagnosticContext) => void,
+): Promise<void> {
   const sessionKey = params.sessionKey?.trim();
   const parsed = parseAgentSessionKey(sessionKey);
   if (
@@ -36,7 +37,8 @@ async function resolveSessionDiagnosticContext(
     !isValidAgentId(parsed.agentId) ||
     isIncognitoSessionKey(sessionKey)
   ) {
-    return {};
+    consume({});
+    return;
   }
   const [kind, cronJobId, ...rest] = parsed.rest.split(":");
   const runIndex = rest.indexOf("run");
@@ -53,7 +55,8 @@ async function resolveSessionDiagnosticContext(
       // Missing or retired cron metadata must not suppress the recovery diagnostic.
     }
   }
-  return context;
+  // Plain diagnostics precede synchronous recovery outcomes; only cron names need an await.
+  consume(context);
 }
 
 function formatSessionDiagnosticFields(
@@ -87,7 +90,7 @@ export function logWithSessionDiagnosticContext(
   if (!isCurrent() || !diag.isEnabled(params.level)) {
     return undefined;
   }
-  return resolveSessionDiagnosticContext(params).then((context) => {
+  return withSessionDiagnosticContext(params, (context) => {
     if (isCurrent() && diag.isEnabled(params.level)) {
       diag[params.level](
         params.format(formatSessionDiagnosticFields(context, params.cronNameLabel)),
