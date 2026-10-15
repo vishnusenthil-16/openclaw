@@ -8,7 +8,7 @@ import { currentThemeBranding, subscribeThemeBranding } from "../../../app/theme
 import "../../../components/elapsed-time.tsx";
 import { Icon } from "../../../components/solid/icon.tsx";
 import { ThemeBrandIcon } from "../../../components/theme-brand-icon.tsx";
-import "../../../components/working-phrase.ts";
+import "../../../components/working-phrase-solid.tsx";
 import type { ChatItem } from "../../../lib/chat/chat-types.ts";
 import { formatDurationLong } from "../../../lib/format-duration.ts";
 import { formatCompactTokenCount } from "../../../lib/format.ts";
@@ -249,7 +249,7 @@ export function TurnRecapRow(props: {
           <BrandGlyph branding={branding.read()} claw="claw" />
         </span>
       </Show>
-      <Show when={typeof props.recap.outputTokens === "number"}>
+      <Show when={props.recap.outputTokens !== undefined}>
         <span>{outputTokensLabel(props.recap.outputTokens!)}</span>{" "}
         <span class="chat-turn-recap__sep" aria-hidden="true">
           ·

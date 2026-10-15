@@ -5,7 +5,7 @@ import { createGatewayHarness, createSessionsHarness, mountSidebar } from "../ap
 import { settleLitElement } from "../lit-settle.ts";
 import "../../components/app-sidebar.tsx";
 
-await import("../../components/viewer-facepile.ts");
+await import("../../components/solid/viewer-facepile.tsx");
 
 describe("AppSidebar person activity card", () => {
   it("projects authorized facts and keeps recent links stable until reopening", async () => {

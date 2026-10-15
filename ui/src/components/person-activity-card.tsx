@@ -26,7 +26,7 @@ import type { PersonActivityData } from "./person-activity-data.ts";
 import { personActivityLink, type PersonActivityRouting } from "./person-activity-link.ts";
 import { Icon } from "./solid/icon.tsx";
 import "./elapsed-time.tsx";
-import "./viewer-facepile.ts";
+import "./solid/viewer-facepile.tsx";
 
 type ScopedSession = { row: GatewaySessionRow; agentId: string };
 type PersonCardInput = {

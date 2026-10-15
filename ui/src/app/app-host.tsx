@@ -7,7 +7,7 @@ import {
 } from "../app-navigation.ts";
 import { isSessionRouteId } from "../app-route-paths.ts";
 import "../components/app-topbar-solid.tsx";
-import "../components/assistant-panel.ts";
+import "../components/assistant-panel-solid.tsx";
 import type { RouteId } from "../app-routes.ts";
 import "../components/resizable-divider.ts";
 import type { AppSidebarBase } from "../components/app-sidebar-base.ts";
@@ -16,7 +16,7 @@ import type {
   CommandPaletteTargetDetail,
 } from "../components/command-palette-contract.ts";
 import { askBrandLabel } from "../components/theme-brand-label.ts";
-import type { ThemeModeChangeDetail } from "../components/theme-mode-toggle.ts";
+import type { ThemeModeChangeDetail } from "../components/theme-mode-toggle.tsx";
 import { i18n } from "../i18n/index.ts";
 import { normalizeAgentLabel } from "../lib/agents/display.ts";
 import { storedChatOutboxScopeKey } from "../lib/chat/outbox-store-scope.ts";
@@ -102,7 +102,7 @@ export class ShellOwner
   readonly onboardingMemoryImportElement = {
     tagName: "openclaw-onboarding-memory-import",
     label: t("onboarding.memoryImport.title"),
-    loadModule: () => import("../components/onboarding-memory-import.ts"),
+    loadModule: () => import("../components/onboarding-memory-import-solid.tsx"),
   } satisfies OptionalCustomElement;
   readonly lazyCustomElements = new LazyCustomElementRequestController(
     this,

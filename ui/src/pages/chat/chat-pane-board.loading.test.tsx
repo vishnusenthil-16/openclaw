@@ -11,7 +11,7 @@ import type { ResolvedBoardView } from "./chat-pane-shared.ts";
 import { createSessionCapabilityFixture, createTestChatPane } from "./chat-pane.test-support.ts";
 import type { ChatPageHost } from "./chat-state-host.ts";
 import { openSlot } from "./sidebar-layout.ts";
-import "../../components/board/board-view.ts";
+import "../../components/board/board-view.tsx";
 
 type BoardTestPane = HTMLElement & {
   context: ApplicationContext;

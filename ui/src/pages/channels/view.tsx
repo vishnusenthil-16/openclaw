@@ -9,7 +9,7 @@ import {
   SettingsSection,
   SettingsStatus,
 } from "../../components/solid/settings-ui.tsx";
-import "../../components/openclaw-mascot.ts";
+import "../../components/openclaw-mascot.tsx";
 import { channelSnapshotEntryIsActive, resolveChannelAccounts } from "../../lib/channels/index.ts";
 import { formatUiExternalText } from "../../lib/format-error.ts";
 import { formatRelativeTimestamp } from "../../lib/format.ts";

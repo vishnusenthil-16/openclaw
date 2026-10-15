@@ -34,7 +34,7 @@ import {
 } from "../../lib/chat/message-normalizer.ts";
 import type { SenderIdentity } from "../../lib/chat/sender-label.ts";
 import { formatSenderLabel } from "../../lib/chat/sender-label.ts";
-import "../../components/channel-avatar.ts";
+import "../../components/solid/channel-avatar.tsx";
 import { readAvatarGatewayContext } from "../../lib/identity-avatar-context.ts";
 import { resolveAvatarImageUrl, retainAvatarImageUrl } from "../../lib/identity-avatar-loader.ts";
 import { resolveAvatarInitials } from "../../lib/identity-avatar.ts";

@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PanelRefreshStatus } from "../../components/panel-refresh-status.ts";
+import type { PanelRefreshStatus } from "../../components/panel-refresh-status-state.ts";
 import { i18n, t } from "../../i18n/index.ts";
 import { captureI18nStateForTesting } from "../../i18n/lib/translate.test-support.ts";
 // Control UI tests cover usage detail behavior through the rendered panel.

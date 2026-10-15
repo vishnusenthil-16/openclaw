@@ -181,13 +181,11 @@ export function updateChatSendAckTiming(
 export function chatSendAckServerTimingEventFields(ack: ChatSendAck): Record<string, number> {
   const timing = ack.serverTiming;
   return {
-    ...(typeof timing?.receivedToAckMs === "number"
+    ...(timing?.receivedToAckMs !== undefined
       ? { serverReceivedToAckMs: timing.receivedToAckMs }
       : {}),
-    ...(typeof timing?.loadSessionMs === "number"
-      ? { serverLoadSessionMs: timing.loadSessionMs }
-      : {}),
-    ...(typeof timing?.prepareAttachmentsMs === "number"
+    ...(timing?.loadSessionMs !== undefined ? { serverLoadSessionMs: timing.loadSessionMs } : {}),
+    ...(timing?.prepareAttachmentsMs !== undefined
       ? { serverPrepareAttachmentsMs: timing.prepareAttachmentsMs }
       : {}),
   };
@@ -195,7 +193,7 @@ export function chatSendAckServerTimingEventFields(ack: ChatSendAck): Record<str
 
 function shouldRecordPendingSendPaint(item: ChatQueueItem): boolean {
   return (
-    typeof item.sendSubmittedAtMs === "number" &&
+    item.sendSubmittedAtMs !== undefined &&
     (item.sendState === "waiting-model" ||
       item.sendState === "waiting-idle" ||
       item.sendState === "submitting" ||

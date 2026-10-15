@@ -14,7 +14,7 @@ import {
   completePanelRefresh,
   createPanelRefreshStatus,
   failPanelRefresh,
-} from "../../components/panel-refresh-status.ts";
+} from "../../components/panel-refresh-status-state.ts";
 import { GitHubIdentityController } from "../../features/github-connections/github-identity-controller.ts";
 import { t } from "../../i18n/index.ts";
 import { selectableAgentsList } from "../../lib/agents/display.ts";

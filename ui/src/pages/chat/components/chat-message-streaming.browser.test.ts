@@ -477,7 +477,7 @@ describe("streaming Markdown DOM", () => {
   );
 
   it("leaves component-owned children intact and handles canonical changes", async () => {
-    await import("../../../components/person-reference.ts");
+    await import("../../../components/solid/person-reference.tsx");
     const drawContent = (label: string, tail: string) => {
       const source = `${label} ${tail}`;
       render(

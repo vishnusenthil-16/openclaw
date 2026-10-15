@@ -11,8 +11,8 @@ import {
   createGatewayHarness,
   flushSync,
 } from "../../../lib/session-pull-requests.test-support.ts";
-import type { ChatCiAutomationElement } from "./chat-ci-automation-control.ts";
-import "./chat-ci-automation-control.ts";
+import type { ChatCiAutomationElement } from "./chat-ci-automation-control.tsx";
+import "./chat-ci-automation-control.tsx";
 
 const sessionKey = "agent:main:dashboard:ci-test";
 const pr = {

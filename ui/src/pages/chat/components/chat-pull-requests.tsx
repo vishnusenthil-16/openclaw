@@ -19,8 +19,8 @@ import { SolidContentPresentation } from "../../../lit/solid-content.tsx";
 import { GitHubPublicationAction, GitHubPublicationDetails } from "./chat-github-publication.tsx";
 import { ChatPullRequestChecks } from "./chat-pull-request-checks.tsx";
 import { chatPullRequestId } from "./chat-pull-requests.ts";
-import "./chat-ci-details.ts";
-import "./chat-ci-automation-control.ts";
+import "./chat-ci-details.tsx";
+import "./chat-ci-automation-control.tsx";
 
 registerGitHubEnglish();
 
@@ -379,10 +379,10 @@ function PullRequestRow(props: {
           `${props.pullRequest.owner}/${props.pullRequest.repo}`,
           props.pullRequest.branch,
           t(STATE_LABEL_KEYS[props.pullRequest.state]),
-          typeof props.pullRequest.additions === "number"
+          props.pullRequest.additions !== undefined
             ? `+${props.pullRequest.additions.toLocaleString()}`
             : null,
-          typeof props.pullRequest.deletions === "number"
+          props.pullRequest.deletions !== undefined
             ? `−${props.pullRequest.deletions.toLocaleString()}`
             : null,
         ]

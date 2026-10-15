@@ -5,7 +5,7 @@ import { expectDefined } from "@openclaw/normalization-core";
 import { html, render as renderLit } from "lit";
 import { createRoot, createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import "../components/login-gate.ts";
+import "../components/login-gate-solid.tsx";
 import { i18n } from "../i18n/index.ts";
 import { storeDeviceAuthToken } from "../lib/nodes/index.ts";
 import { solidContent } from "../lit/solid-content.tsx";

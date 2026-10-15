@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { exactBoardWidgetHeightPx } from "../../lib/board/grid.ts";
 // Side-effect import: test-support only type-imports the component, so the
 // custom element must be registered here for mount() to render anything.
-import "./board-view.ts";
+import "./board-view.tsx";
 import {
   boardWidget,
   callbacks,

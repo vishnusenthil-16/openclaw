@@ -1,4 +1,4 @@
-import type { NativeLinkMenu } from "../components/native-link-menu.runtime.ts";
+import type { NativeLinkMenu } from "../components/native-link-menu.runtime.tsx";
 import {
   BROWSER_PANEL_TOGGLE_EVENT,
   type BrowserPanelToggleDetail,
@@ -158,7 +158,7 @@ export function startNativeLinkRouting(options: NativeLinkRoutingOptions = {}): 
     closeMenu();
     const request = menuRequest;
     const path = event.composedPath();
-    const { mountNativeLinkMenu } = await import("../components/native-link-menu.runtime.ts");
+    const { mountNativeLinkMenu } = await import("../components/native-link-menu.runtime.tsx");
     if (disposed || options.signal?.aborted || request !== menuRequest || !anchor.isConnected) {
       return;
     }

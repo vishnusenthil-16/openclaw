@@ -19,8 +19,8 @@ import { SidebarBuildChip } from "./sidebar-build-chip.tsx";
 import { Icon } from "./solid/icon.tsx";
 import { Kbd, KeyboardShortcut } from "./solid/kbd.tsx";
 import type { MenuEntry, MenuItem } from "./solid/menu.tsx";
-import "./viewer-facepile.ts";
-import "./theme-mode-toggle.ts";
+import "./solid/viewer-facepile.tsx";
+import "./theme-mode-toggle.tsx";
 
 type SidebarIdentityMenuParams = {
   position: { x: number; bottom: number; width: number };

@@ -2,7 +2,7 @@ import { noChange, type ChildPart } from "lit";
 import { AsyncDirective } from "lit/async-directive.js";
 import { setCommittedValue } from "lit/directive-helpers.js";
 import { directive } from "lit/directive.js";
-import type { OpenClawCanvasWidgetView } from "../../../components/canvas-widget-view.ts";
+import type { OpenClawCanvasWidgetView } from "../../../components/canvas-widget-view.tsx";
 
 type WidgetProperties = Pick<
   OpenClawCanvasWidgetView,

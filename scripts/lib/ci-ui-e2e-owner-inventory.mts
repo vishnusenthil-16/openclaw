@@ -185,7 +185,7 @@ type UiE2eOwnerWatch = {
 
 const sessionMenuOwnerRoots = [
   "ui/src/components/modal-dialog.ts",
-  "ui/src/components/session-menu.ts",
+  "ui/src/components/session-menu-solid.tsx",
   "ui/src/lib/sessions/session-capability.ts",
   "ui/src/pages/chat/components/chat-header-session-menu.ts",
 ] as const;
@@ -327,7 +327,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
   pageWatch(
     "ui/src/e2e/assistant-panel-context.e2e.test.ts",
     ["chat"],
-    ["ui/src/components/assistant-panel.ts", "ui/src/pages/chat/chat-pane.ts"],
+    ["ui/src/components/assistant-panel-solid.tsx", "ui/src/pages/chat/chat-pane.ts"],
     ["ui/src/styles/assistant-panel.css"],
   ),
   pageWatch("ui/src/e2e/attachment-file-styles.e2e.test.ts", ["chat"]),
@@ -604,7 +604,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
   pageWatch(
     "ui/src/e2e/chat-header-session-outcomes.e2e.test.ts",
     ["chat", "sessions"],
-    ["ui/src/components/session-menu.ts"],
+    ["ui/src/components/session-menu-solid.tsx"],
   ),
   pageWatch("ui/src/e2e/chat-heartbeat-activity-rollup.e2e.test.ts", ["chat"]),
   pageWatch(
@@ -875,7 +875,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
     "ui/src/e2e/chat-split-close-focus.e2e.test.ts",
     ["chat"],
     [
-      "ui/src/components/assistant-panel.ts",
+      "ui/src/components/assistant-panel-solid.tsx",
       "ui/src/pages/chat/chat-page.ts",
       "ui/src/pages/chat/chat-pane.ts",
     ],
@@ -923,7 +923,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
   pageWatch(
     "ui/src/e2e/chat-tool-output-fidelity.e2e.test.ts",
     ["chat"],
-    ["ui/src/pages/chat/components/chat-tool-output.ts"],
+    ["ui/src/pages/chat/components/chat-tool-output.tsx"],
   ),
   pageWatch("ui/src/e2e/chat-tool-steering-skip.e2e.test.ts", ["chat"]),
   pageWatch("ui/src/e2e/chat-tool-turn-outcome.e2e.test.ts", ["chat", "terminal"]),
@@ -1236,7 +1236,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
   pageWatch(
     "ui/src/e2e/inference-setup-gate.e2e.test.ts",
     ["chat", "config", "custodian", "model-providers", "new-session"],
-    ["ui/src/components/assistant-panel.ts", "ui/src/pages/custodian/custodian-surface.tsx"],
+    ["ui/src/components/assistant-panel-solid.tsx", "ui/src/pages/custodian/custodian-surface.tsx"],
     ["ui/src/styles/assistant-panel.css"],
   ),
   pageWatch(
@@ -1421,7 +1421,10 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
   pageWatch(
     "ui/src/e2e/new-session-page.cloud-dispatch.e2e.test.ts",
     ["chat", "new-session"],
-    ["ui/src/components/session-menu.ts", "ui/src/pages/new-session/cloud-profile-discovery.ts"],
+    [
+      "ui/src/components/session-menu-solid.tsx",
+      "ui/src/pages/new-session/cloud-profile-discovery.ts",
+    ],
   ),
   pageWatch("ui/src/e2e/new-session-page.cloud-os.e2e.test.ts", ["chat", "new-session"]),
   pageWatch("ui/src/e2e/new-session-page.cloud-size.e2e.test.ts", ["chat", "new-session"]),
@@ -1850,7 +1853,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
     ["activity", "chat", "profile"],
     [
       "ui/src/components/channel-avatar.ts",
-      "ui/src/components/session-menu.ts",
+      "ui/src/components/session-menu-solid.tsx",
       "ui/src/components/viewer-facepile.ts",
       "ui/src/lib/session-pull-requests.ts",
     ],
@@ -1888,7 +1891,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
     "ui/src/e2e/session-progress-widget.e2e.test.ts",
     ["chat", "plugin"],
     [
-      "ui/src/components/board/board-view.ts",
+      "ui/src/components/board/board-view.tsx",
       "ui/src/lib/board/widgets/session-progress.tsx",
       "ui/src/pages/chat/chat-pane.ts",
       "ui/src/pages/chat/sidebar-layout.ts",
@@ -2144,7 +2147,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
     ["config"],
     [
       "ui/src/components/assistant-panel-content.ts",
-      "ui/src/components/assistant-panel.ts",
+      "ui/src/components/assistant-panel-solid.tsx",
       "ui/src/components/modal-dialog.ts",
     ],
     [
@@ -2197,7 +2200,7 @@ const ownerWatches: readonly UiE2eOwnerWatch[] = [
     ["custodian", "new-session", "terminal"],
     [
       "ui/src/components/assistant-panel-content.ts",
-      "ui/src/components/assistant-panel.ts",
+      "ui/src/components/assistant-panel-solid.tsx",
       "ui/src/components/browser/browser-panel.ts",
       "ui/src/components/desktop/desktop-panel.ts",
       "ui/src/components/terminal/terminal-panel-registration.ts",

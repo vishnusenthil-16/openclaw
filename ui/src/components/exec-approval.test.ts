@@ -12,7 +12,7 @@ import {
   type ExecApprovalElement,
   type ExecApprovalProps,
 } from "./exec-approval-solid.tsx";
-import "./exec-approval.ts";
+import "./exec-approval-solid.tsx";
 
 let container: HTMLDivElement;
 let restoreDialogPolyfill: () => void;

@@ -4,7 +4,7 @@ import { isSessionRouteId } from "../app-route-paths.ts";
 import { APP_ROUTE_IDS } from "../app-routes.ts";
 import type { SettingsSidebarLoader } from "../components/settings-sidebar-lazy.tsx";
 import type { SettingsSidebarProps } from "../components/settings-sidebar.tsx";
-import type { ThemeModeChangeDetail } from "../components/theme-mode-toggle.ts";
+import type { ThemeModeChangeDetail } from "../components/theme-mode-toggle.tsx";
 import { canCallGatewayMethod } from "../lib/gateway-methods.ts";
 import { resolveGatewayStatus } from "../lib/gateway-status.ts";
 import { readSessionMethodAccess } from "../lib/session-method-access.ts";

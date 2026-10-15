@@ -5,7 +5,7 @@ import type { SessionsUsageResult } from "../../api/types.ts";
 import { subtitleForRoute, titleForRoute } from "../../app-navigation.ts";
 import type { ApplicationContext } from "../../app/context.ts";
 import { AgentScopeControl } from "../../components/agent-scope-control.tsx";
-import type { PanelRefreshStatus } from "../../components/panel-refresh-status.ts";
+import type { PanelRefreshStatus } from "../../components/panel-refresh-status-state.ts";
 import { PanelRefreshStatus as PanelRefreshStatusView } from "../../components/solid/panel-refresh-status.tsx";
 import { SettingsPageHeader } from "../../components/solid/settings-ui.tsx";
 import { SettingsWorkspace } from "../../components/solid/settings-workspace.tsx";

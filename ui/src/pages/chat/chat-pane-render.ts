@@ -8,7 +8,7 @@ import {
   navigateMarkdownSession,
 } from "../../components/markdown-session-links.ts";
 import { personActivityRouting } from "../../components/person-activity-link.ts";
-import { isCloudWorkerPlacementState } from "../../components/session-row-badges.ts";
+import { isCloudWorkerPlacementState } from "../../components/session-row-badge-presentation.ts";
 import { t } from "../../i18n/index.ts";
 import { canCallGatewayMethod, isGatewayMethodAdvertised } from "../../lib/gateway-methods.ts";
 import {

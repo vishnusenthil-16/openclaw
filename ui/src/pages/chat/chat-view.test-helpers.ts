@@ -17,7 +17,7 @@ import { ChatView, type ChatProps } from "./chat-view.tsx";
 import {
   prepareChatMessageRender,
   resolveMessageActionDetails,
-} from "./components/chat-message-markdown.ts";
+} from "./components/chat-message-markdown-view.tsx";
 import { ChatTranscriptController } from "./components/chat-transcript-controller.ts";
 
 export function requireElement(container: Element, selector: string, label: string): Element {

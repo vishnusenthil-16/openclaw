@@ -65,7 +65,7 @@ import type {
   ChatTypingOverflow,
 } from "./chat-typing-presence.ts";
 import type { ChatProps } from "./chat-view.tsx";
-import type { HeaderMenuAction } from "./components/chat-header-session-menu.ts";
+import type { HeaderMenuAction } from "./components/chat-header-session-menu.tsx";
 import { createSessionWorkspaceProps } from "./components/chat-session-workspace.ts";
 import type {
   ChatTaskSuggestionTrayProps,

@@ -15,7 +15,7 @@ import {
   terminalPanelTabIcon,
   terminalPanelHostedTabs,
   type TerminalPanelTab,
-} from "./terminal-panel-tabs.ts";
+} from "./terminal-panel-tabs.tsx";
 import type { TerminalPanelUploadController } from "./terminal-panel-upload.ts";
 
 declare module "@solidjs/web" {

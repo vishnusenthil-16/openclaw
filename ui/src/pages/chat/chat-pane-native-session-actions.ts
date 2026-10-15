@@ -9,7 +9,7 @@ import { ChatPaneHeaderMemo } from "./chat-pane-header-memo.ts";
 import type {
   HeaderMenuAction,
   HeaderMenuSessionAction,
-} from "./components/chat-header-session-menu.ts";
+} from "./components/chat-header-session-menu.tsx";
 
 export class ChatPaneNativeSessionActions {
   private readonly memo = new ChatPaneHeaderMemo<HeaderMenuSessionAction[]>();

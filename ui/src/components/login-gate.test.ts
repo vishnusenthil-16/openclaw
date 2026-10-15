@@ -5,7 +5,7 @@ import { ConnectErrorDetailCodes } from "../../../packages/gateway-protocol/src/
 import { registerControlUiReloadGuard } from "../app/document-reload-guard.ts";
 import { showToast } from "../lib/toast.ts";
 import { mountSolid } from "../test-helpers/mount-solid.ts";
-import "./login-gate.ts";
+import "./login-gate-solid.tsx";
 
 type LoginGateElement = HTMLElement & {
   props: Record<string, unknown>;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderGroupedMessage } from "./chat-message-bubble.ts";
-import { prepareChatMessageRender } from "./chat-message-markdown.ts";
+import { prepareChatMessageRender } from "./chat-message-markdown-view.tsx";
 import { renderToolFixture as render } from "./chat-tool-render.test-support.ts";
 
 describe("plugin activity icons", () => {

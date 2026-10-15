@@ -34,7 +34,7 @@ import {
   type SidebarSessionPatch,
   type SidebarSessionStatusFilter,
 } from "./app-sidebar-session-types.ts";
-import type { SessionMenuAction } from "./session-menu.ts";
+import type { SessionMenuAction } from "./session-menu-solid.tsx";
 import type { SessionOrganizerControllerHost } from "./session-organizer-controller-types.ts";
 
 export type { SessionOrganizerControllerHost } from "./session-organizer-controller-types.ts";

@@ -148,8 +148,8 @@ describe("devices exec approvals rendering", () => {
     const container = renderDevicesContainer({
       nodes: [
         {
-          id: "windows-node",
-          label: "Windows node",
+          nodeId: "windows-node",
+          displayName: "Windows node",
           commands: ["system.execApprovals.get", "system.execApprovals.set"],
         },
       ],

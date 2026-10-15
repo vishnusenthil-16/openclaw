@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ThemeMode } from "../app/theme.ts";
-import type { ThemeModeChangeDetail } from "./theme-mode-toggle.ts";
-import "./theme-mode-toggle.ts";
+import type { ThemeModeChangeDetail } from "./theme-mode-toggle.tsx";
+import "./theme-mode-toggle.tsx";
 
 type ThemeModeToggleElement = HTMLElement & {
   mode: ThemeMode;

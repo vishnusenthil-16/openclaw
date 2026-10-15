@@ -11,7 +11,7 @@ import type { AgentsListResult } from "../api/types.ts";
 import { captureChatOutboxAdmission, storageTargetForComposer } from "../lib/chat/outbox-store.ts";
 // These direct-render fixtures exercise Gateway lineage without the app lifecycle.
 // Browser tests cover deferred login loading and recovery.
-import "../components/login-gate.ts";
+import "../components/login-gate-solid.tsx";
 import {
   createTestSessionCapability,
   sessionsResult,

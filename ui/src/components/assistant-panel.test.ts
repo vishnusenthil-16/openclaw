@@ -24,7 +24,7 @@ import {
 import { createApplicationContextProvider } from "../test-helpers/application-context.ts";
 import { createStorageMock } from "../test-helpers/storage.ts";
 import { CUSTODIAN_PANEL_TOGGLE_EVENT, HOME_PANEL_TOGGLE_EVENT } from "./panel-toggle-contract.ts";
-import "./assistant-panel.ts";
+import "./assistant-panel-solid.tsx";
 import "./assistant-panel-content.ts";
 
 vi.mock("./home-session.runtime.ts", () => {

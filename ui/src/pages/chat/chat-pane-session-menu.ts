@@ -15,7 +15,7 @@ import type { SessionMenuData } from "../../components/session-menu-actions.ts";
 import { hasSessionArchiveDescendants } from "../../components/session-menu-descendants.ts";
 import type * as SessionOperations from "../../components/session-organizer-operations.runtime.ts";
 import { sessionPlacementAction } from "../../components/session-placement-action.ts";
-import { isCloudWorkerPlacementState } from "../../components/session-row-badges.ts";
+import { isCloudWorkerPlacementState } from "../../components/session-row-badge-presentation.ts";
 import { t } from "../../i18n/index.ts";
 import { copyToClipboard } from "../../lib/clipboard.ts";
 import { openEditor } from "../../lib/editor-links.ts";
@@ -46,8 +46,8 @@ import { ChatPaneHeaderMemo } from "./chat-pane-header-memo.ts";
 import { headerSessionMetadataPatch } from "./chat-pane-session-metadata-patch.ts";
 import { chatSessionPresentationTitle } from "./chat-pane-session-presentation.ts";
 import { resolveChatAgentId, selectedChatSessionRow } from "./chat-state-route.ts";
-import type { HeaderMenuAction } from "./components/chat-header-session-menu.ts";
-import type { ChatPaneHeaderAction } from "./components/chat-pane-header.ts";
+import type { HeaderMenuAction } from "./components/chat-header-session-menu.tsx";
+import type { ChatPaneHeaderAction } from "./components/chat-pane-header.tsx";
 import { buildContinueInTerminalCommand } from "./continue-in-terminal-command.ts";
 
 export abstract class ChatPaneSessionMenu extends ChatPaneContext {

@@ -2,7 +2,7 @@ import type { SessionLogEntry } from "../../../../src/infra/session-cost-usage.t
 import type { SessionUsageTimeSeries } from "../../../../src/shared/session-usage-timeseries-types.js";
 import type { CostUsageSummary } from "../../api/types.ts";
 import type { ApplicationContext, ApplicationGatewaySnapshot } from "../../app/context.ts";
-import type { PanelRefreshStatus } from "../../components/panel-refresh-status.ts";
+import type { PanelRefreshStatus } from "../../components/panel-refresh-status-state.ts";
 import type {
   CostUsageDailyEntry,
   ProviderUsageSummary,

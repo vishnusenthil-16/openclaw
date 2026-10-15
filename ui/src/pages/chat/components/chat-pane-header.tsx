@@ -15,12 +15,12 @@ import {
   type PersonActivityRouting,
 } from "../../../components/person-activity-link.ts";
 import { renderSessionColorDot } from "../../../components/session-color.ts";
-import { isCloudWorkerPlacementState } from "../../../components/session-row-badges.ts";
+import { isCloudWorkerPlacementState } from "../../../components/session-row-badge-presentation.ts";
 import { Icon } from "../../../components/solid/icon.tsx";
 import { Menu, type MenuItem } from "../../../components/solid/menu.tsx";
 import { renderSessionOwnerChip } from "../../../components/solid/session-presentation.tsx";
 import "../../../components/tooltip.ts";
-import "../../../components/workspace-icon.ts";
+import "../../../components/workspace-icon.tsx";
 import { SessionTitlePlaceholder } from "../../../components/solid/session-title-placeholder.tsx";
 import {
   clearCompositionEnd,

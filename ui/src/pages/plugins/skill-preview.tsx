@@ -3,7 +3,7 @@ import type {
   PluginsSkillsReadParams,
   PluginsSkillsReadResult,
 } from "../../../../packages/gateway-protocol/src/schema/plugin-skills.ts";
-import type { FilePreviewModalFile } from "../../components/file-preview-modal.ts";
+import type { FilePreviewModalFile } from "../../components/file-preview-modal.tsx";
 import { Icon } from "../../components/solid/icon.tsx";
 import { registerFilePreviewEnglish } from "../../i18n/locales/en-file-preview.ts";
 import "../../components/file-preview-modal-registration.ts";

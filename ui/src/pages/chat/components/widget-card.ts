@@ -333,7 +333,7 @@ const loadMcpAppView = async () => {
   await import("../../../components/mcp-app-view-registration.ts");
 };
 
-const loadCanvasWidgetView = () => import("../../../components/canvas-widget-view.ts");
+const loadCanvasWidgetView = () => import("../../../components/canvas-widget-view.tsx");
 const loadYouTubeVideo = () => import("./youtube-video-card.tsx");
 
 function renderWidgetContent(

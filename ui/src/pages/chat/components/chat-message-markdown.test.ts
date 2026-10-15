@@ -13,7 +13,10 @@ import { renderSolidRef } from "../../../test-helpers/render-solid-ref.ts";
 import { flush } from "../../../test-helpers/solid-settle.ts";
 import { persistedMessageEntryId } from "../chat-thread-items.ts";
 import { renderGroupedMessage } from "./chat-message-bubble.ts";
-import { prepareChatMessageRender, resolveMessageActionDetails } from "./chat-message-markdown.ts";
+import {
+  prepareChatMessageRender,
+  resolveMessageActionDetails,
+} from "./chat-message-markdown-view.tsx";
 import { renderMessageMarkdown } from "./chat-message-text.test-support.ts";
 
 const cappedMeta = { id: "msg-1", truncated: true, reason: "display-cap" };

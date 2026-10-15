@@ -7,7 +7,7 @@ import type { ChatPageHost } from "../chat-state-host.ts";
 import { selectedChatSessionRow } from "../chat-state-route.ts";
 import type { ChatProps } from "../chat-view.tsx";
 import { openSlot } from "../sidebar-layout.ts";
-import "./chat-tool-output.ts";
+import "./chat-tool-output-view.tsx";
 import { assistantMediaPolicyKey } from "./chat-message-media.ts";
 import { selectSessionWorkspacePreview } from "./chat-session-workspace-state.ts";
 import { openSessionWorkspaceFile, revealSessionWorkspaceFile } from "./chat-session-workspace.ts";

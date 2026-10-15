@@ -19,7 +19,7 @@ import {
   type SidebarLayout,
   type SidebarSlotId,
 } from "../sidebar-layout.ts";
-import type { HeaderMenuQuickAction } from "./chat-header-session-menu.ts";
+import type { HeaderMenuQuickAction } from "./chat-header-session-menu.tsx";
 import { chatQuickActionEntry, type ChatQuickAction } from "./chat-quick-action.tsx";
 import type { SidebarPanelDefinition } from "./chat-sidebar-region-types.ts";
 

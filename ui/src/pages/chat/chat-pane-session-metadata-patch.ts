@@ -1,5 +1,5 @@
 import type { GatewaySessionRow } from "../../api/types.ts";
-import type { HeaderMenuAction } from "./components/chat-header-session-menu.ts";
+import type { HeaderMenuAction } from "./components/chat-header-session-menu.tsx";
 
 type HeaderMetadataAction = Extract<
   HeaderMenuAction,

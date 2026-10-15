@@ -10,7 +10,7 @@ import { COMMAND_PALETTE_OPEN_EVENT } from "../../components/command-palette-con
 import { icons } from "../../components/icons.ts";
 import { personActivityRouting } from "../../components/person-activity-link.ts";
 import { sessionMenuReasons } from "../../components/session-menu-access.ts";
-import { isCloudWorkerPlacementState } from "../../components/session-row-badges.ts";
+import { isCloudWorkerPlacementState } from "../../components/session-row-badge-presentation.ts";
 import { i18n, t } from "../../i18n/index.ts";
 import { isGatewayMethodAdvertised } from "../../lib/gateway-methods.ts";
 import {
@@ -46,19 +46,19 @@ import { projectSubagentStatus } from "./chat-subagent-wait.ts";
 import { isChatRunWorking } from "./components/chat-composer.tsx";
 import type { ChatDetails } from "./components/chat-details.tsx";
 import type { HeaderPanelAction } from "./components/chat-header-panel-actions.tsx";
-import "./components/chat-header-session-menu.ts";
+import "./components/chat-header-session-menu.tsx";
 import type {
   HeaderMenuAction,
   HeaderMenuActionKind,
   HeaderMenuQuickAction,
-} from "./components/chat-header-session-menu.ts";
+} from "./components/chat-header-session-menu.tsx";
 import {
   canRevealSessionWorkspace,
   renderChatPaneHeader,
   resolveChatPaneParentSession,
   resolveChatPaneWorkspaceIcon,
-} from "./components/chat-pane-header.ts";
-import { renderChatPanePlacement } from "./components/chat-pane-placement.ts";
+} from "./components/chat-pane-header.tsx";
+import { renderChatPanePlacement } from "./components/chat-pane-placement.tsx";
 import {
   canManageChatSessionSharing,
   renderChatSessionPublicIndicator,

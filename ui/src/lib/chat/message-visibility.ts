@@ -51,7 +51,7 @@ function isAssistantSilentReply(message: unknown): boolean {
     return isSilentReplyStream(entry.text);
   }
   const text = extractText(message);
-  return typeof text === "string" && isSilentReplyStream(text);
+  return text !== null && isSilentReplyStream(text);
 }
 
 function isSyntheticTranscriptRepairToolResult(message: unknown): boolean {
@@ -60,7 +60,7 @@ function isSyntheticTranscriptRepairToolResult(message: unknown): boolean {
     return false;
   }
   const text = extractText(message);
-  return typeof text === "string" && text.trim() === SYNTHETIC_TRANSCRIPT_REPAIR_RESULT;
+  return text?.trim() === SYNTHETIC_TRANSCRIPT_REPAIR_RESULT;
 }
 
 export function isHiddenAssistantStreamText(text: string): boolean {

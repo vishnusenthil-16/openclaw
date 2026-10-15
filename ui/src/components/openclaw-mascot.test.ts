@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { resolveThemeBranding } from "../../../packages/gateway-protocol/src/theme.ts";
 import { setCurrentThemeBranding } from "../app/theme-branding.ts";
 import { waitForSolid } from "../test-helpers/solid-settle.ts";
-import "./openclaw-mascot.ts";
+import "./openclaw-mascot.tsx";
 
 afterEach(() => {
   document.body.replaceChildren();

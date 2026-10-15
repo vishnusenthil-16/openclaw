@@ -23,7 +23,7 @@ import { LitContent, solidContent } from "../../../lit/solid-content.tsx";
 import { PluginSurface } from "../../../plugins/control-ui-view.solid.tsx";
 import { assistantMessageIsInterrupted } from "../chat-assistant-reply.ts";
 import { renderAsyncQuestionSummary } from "./chat-async-question.ts";
-import "../../../components/person-reference.ts";
+import "../../../components/solid/person-reference.tsx";
 import { ChatBubbleActivity } from "./chat-bubble-activity-view.tsx";
 import { ChatPermissionCard } from "./chat-divider.tsx";
 import { OmittedMedia } from "./chat-message-attachment-status-solid.tsx";
@@ -37,7 +37,7 @@ import {
 import { MessageWorkContext } from "./chat-message-context-view.tsx";
 import { MessageImages } from "./chat-message-images-solid.tsx";
 import { renderMessageImages } from "./chat-message-images.ts";
-import "./chat-clawhub-card.ts";
+import "./chat-clawhub-card.tsx";
 import type { ChatMessageRenderPreparation } from "./chat-message-markdown-view.tsx";
 import type { MarkdownMedia } from "./chat-message-media-markdown.ts";
 import { prepareMarkdownMedia } from "./chat-message-media-markdown.ts";
@@ -54,7 +54,7 @@ import {
 } from "./chat-tool-cards.solid.tsx";
 import { ChatToolContent, ChatToolRawOutput, ChatToolOutcome } from "./chat-tool-content.solid.tsx";
 import { toolResultSurfaceProps } from "./chat-tool-render-model.ts";
-import { renderWorkspaceConflictTranscriptMessage } from "./chat-workspace-conflict.ts";
+import { renderWorkspaceConflictTranscriptMessage } from "./chat-workspace-conflict.tsx";
 import { renderToolPreview } from "./widget-card.ts";
 
 registerEnglishCatalog(registerChatMessageMetadataEnglish);

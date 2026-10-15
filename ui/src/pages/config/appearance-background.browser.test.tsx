@@ -7,7 +7,7 @@ import {
 import { resolveThemeBranding } from "../../../../packages/gateway-protocol/src/theme.ts";
 import type { ApplicationContext, ApplicationTheme } from "../../app/context.ts";
 import { loadSettings } from "../../app/settings.ts";
-import type { SessionBackground } from "../../components/session-background.ts";
+import type { SessionBackground } from "../../components/session-background.tsx";
 import { mountSolid } from "../../test-helpers/mount-solid.ts";
 import { createApplicationGateway } from "../../test-helpers/solid-application-context.tsx";
 import { flush } from "../../test-helpers/solid-settle.ts";

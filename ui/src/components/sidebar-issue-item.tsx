@@ -21,7 +21,7 @@ import { SidebarDismissButton, SidebarNotificationCard } from "./sidebar-notific
 import { SidebarUpdateCard } from "./sidebar-update-card.tsx";
 import { Icon } from "./solid/icon.tsx";
 import { askBrandLabel } from "./theme-brand-label.ts";
-import "./viewer-facepile.ts";
+import "./solid/viewer-facepile.tsx";
 
 registerEnglishCatalog(registerSidebarAttentionEnglish);
 

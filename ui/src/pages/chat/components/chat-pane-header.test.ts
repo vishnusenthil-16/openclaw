@@ -31,8 +31,8 @@ import {
   canRevealSessionWorkspace,
   resolveChatPaneParentSession,
   resolveChatPaneWorkspaceIcon,
-} from "./chat-pane-header.ts";
-import { renderChatPanePlacement } from "./chat-pane-placement.ts";
+} from "./chat-pane-header.tsx";
+import { renderChatPanePlacement } from "./chat-pane-placement.tsx";
 
 const containers: HTMLElement[] = [];
 

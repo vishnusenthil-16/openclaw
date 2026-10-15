@@ -8,7 +8,7 @@ import type {
 import { createAgentSelectionCapability } from "../../app/agent-selection.ts";
 import type { ApplicationContext, ApplicationGatewaySnapshot } from "../../app/context.ts";
 import { createGatewayMetadataObserver } from "../../app/gateway-observers.ts";
-import type { PanelRefreshStatus } from "../../components/panel-refresh-status.ts";
+import type { PanelRefreshStatus } from "../../components/panel-refresh-status-state.ts";
 import type { AgentsPanel } from "../../lib/agents/panels.ts";
 import { invalidateChatMetadataStore } from "../../lib/chat/chat-metadata-cache.ts";
 import type { CronState } from "../../lib/cron/types.ts";

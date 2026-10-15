@@ -20,7 +20,7 @@ import "./mcp-app-catalog.tsx";
 import "./sidebar-agent-card.tsx";
 import "./sidebar-attention.tsx";
 import { SubscriptionsController } from "../lib/subscriptions-controller.ts";
-import "./theme-mode-toggle.ts";
+import "./theme-mode-toggle.tsx";
 import "./tooltip.ts";
 import { renderAppSidebarOnline, sidebarOnlineOrder } from "./app-sidebar-online.tsx";
 import { hidePersonalSidebarCatalog } from "./app-sidebar-personal-navigation.ts";

@@ -3,7 +3,7 @@ import { createDeferred as deferred } from "../../../../test/helpers/promise.js"
 import "../../lib/toast-host.ts";
 // Side-effect import: registers the custom elements mount() depends on
 // without relying on transitive fixture imports.
-import "./board-view.ts";
+import "./board-view.tsx";
 import {
   createApplicationContextProvider,
   createApplicationGateway,

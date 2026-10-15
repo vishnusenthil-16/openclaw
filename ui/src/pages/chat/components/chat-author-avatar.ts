@@ -6,7 +6,7 @@ import {
   renderIdentityAvatarImage,
   type IdentityAvatarView,
 } from "../../../components/identity-avatar-view.ts";
-import "../../../components/channel-avatar.ts";
+import "../../../components/solid/channel-avatar.tsx";
 import {
   resolveChannelSenderAvatarUrl,
   type ChannelSenderAvatarSource,

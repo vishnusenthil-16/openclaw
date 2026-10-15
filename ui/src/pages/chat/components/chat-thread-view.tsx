@@ -4,14 +4,6 @@ import {
   linkReaderPrefetchRef as createLinkReaderPrefetchRef,
   markdownBlocksRef as createMarkdownBlocksRef,
 } from "../../../components/markdown-element-refs-solid.ts";
-import {
-  markdownFileLinkFromEvent,
-  markdownFileLinkFromKeyboardEvent,
-} from "../../../components/markdown-file-links.ts";
-import {
-  markdownSessionLinkFromEvent,
-  markdownSessionLinkFromKeyboardEvent,
-} from "../../../components/markdown-session-links.ts";
 import { handleMarkdownTableInteraction } from "../../../components/markdown-tables.ts";
 import { LoadingState } from "../../../components/solid/loading-state.tsx";
 import { PanelLoadingSkeleton } from "../../../components/solid/panel-loading-skeleton.tsx";
@@ -24,6 +16,10 @@ import { solidContent } from "../../../lit/solid-content.tsx";
 import { hydrateLinkFavicons } from "../link-favicon-loader.ts";
 import { ChatCommentPins } from "./chat-comment-pins.tsx";
 import { CHAT_HISTORY_BOUNDARY_HEIGHT_PX, ChatHistoryBoundary } from "./chat-history-boundary.tsx";
+import {
+  handleChatMarkdownLinkClick,
+  handleChatMarkdownLinkKeydown,
+} from "./chat-markdown-navigation.ts";
 import { ChatPositionRail } from "./chat-position-rail-solid.tsx";
 import {
   handleTranscriptContextMenu,
@@ -167,14 +163,7 @@ export function ChatThread(input: {
           ) {
             return;
           }
-          const target = markdownFileLinkFromKeyboardEvent(event);
-          if (target) {
-            input.props.onOpenWorkspaceFile?.(target);
-            return;
-          }
-          const sessionTarget = markdownSessionLinkFromKeyboardEvent(event, input.props.basePath);
-          if (sessionTarget) {
-            input.props.onOpenSessionLink?.(sessionTarget);
+          if (handleChatMarkdownLinkKeydown(event, input.props)) {
             return;
           }
           input.props.onHistoryIntent?.(event);
@@ -187,16 +176,7 @@ export function ChatThread(input: {
           if (shouldHandleNavigationClick(event) && navigateCronRunLink(event, input.props)) {
             return;
           }
-          const target = markdownFileLinkFromEvent(event);
-          if (target) {
-            input.props.onOpenWorkspaceFile?.(target);
-            return;
-          }
-          const sessionTarget = markdownSessionLinkFromEvent(event, input.props.basePath);
-          if (sessionTarget && shouldHandleNavigationClick(event)) {
-            event.preventDefault();
-            input.props.onOpenSessionLink?.(sessionTarget);
-          }
+          handleChatMarkdownLinkClick(event, input.props);
         }}
         onContextMenu={(event) => handleTranscriptContextMenu(event, input.props)}
         onPointerUp={(event) => handleTranscriptPointerUp(event, input.props)}

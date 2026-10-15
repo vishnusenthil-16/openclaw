@@ -21,7 +21,7 @@ import {
 } from "./chat-provider-review-controller.tsx";
 import type { SubagentRoster, SubagentRowContext } from "./chat-spawned-subagent.ts";
 import { ChatChildAttention } from "./components/chat-child-attention.tsx";
-import { renderWorkspaceConflictNotice } from "./components/chat-workspace-conflict.ts";
+import { renderWorkspaceConflictNotice } from "./components/chat-workspace-conflict.tsx";
 import type { ChatRunError } from "./run-lifecycle.ts";
 import type { ProviderPolicyNotice } from "./tool-stream-contract.ts";
 import type { WorkspaceResultConflict } from "./workspace-conflict.ts";

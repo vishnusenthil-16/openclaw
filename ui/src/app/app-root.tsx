@@ -16,7 +16,7 @@ import {
   untrack,
 } from "solid-js";
 import type { GatewayBrowserClient } from "../api/gateway.ts";
-import "../components/gateway-url-confirmation.ts";
+import "../components/solid/gateway-url-confirmation.tsx";
 import "../components/link-reader-hovercard-registration.ts";
 import { renderLazyElementState, renderLazyViewError } from "../components/lazy-view-error.ts";
 import { renderConnectingSplash } from "../components/loading-skeleton.ts";

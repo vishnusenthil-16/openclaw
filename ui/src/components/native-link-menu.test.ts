@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flattenTranslations } from "../../../scripts/lib/control-ui-i18n-sync-plan.ts";
 import { i18n } from "../i18n/index.ts";
 import { de } from "../i18n/locales/de.ts";
-import type { NativeLinkMenu } from "./native-link-menu.runtime.ts";
-import "./native-link-menu.runtime.ts";
+import type { NativeLinkMenu } from "./native-link-menu.runtime.tsx";
+import "./native-link-menu.runtime.tsx";
 import { settleTooltip, tooltipSurface } from "./tooltip.test-support.ts";
 
 const containers: HTMLElement[] = [];

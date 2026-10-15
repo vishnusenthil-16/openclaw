@@ -68,7 +68,7 @@ import type { ChatPageHost } from "./chat-state-host.ts";
 import { requestChatPageUpdate } from "./chat-state-render.ts";
 import type { ChatTypingActorState } from "./chat-typing-presence.ts";
 import { getChatComposerState } from "./components/chat-composer-state.ts";
-import type { ChatPaneHeaderAction } from "./components/chat-pane-header.ts";
+import type { ChatPaneHeaderAction } from "./components/chat-pane-header.tsx";
 import { installChatComposerPickerDismissal } from "./components/chat-picker-overlay.ts";
 import type { ChatSessionSharingState } from "./components/chat-session-sharing.ts";
 import { getTranscriptState } from "./components/chat-thread-interactions.ts";

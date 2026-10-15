@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, expect, it, vi } from "vitest";
-import type { NativeLinkMenu } from "../components/native-link-menu.runtime.ts";
+import type { NativeLinkMenu } from "../components/native-link-menu.runtime.tsx";
 import { startNativeLinkRouting } from "./native-link-routing.ts";
 
 const menuLoad = vi.hoisted(() => {
@@ -12,7 +12,7 @@ const menuLoad = vi.hoisted(() => {
   return { started: vi.fn(), ready: { promise, resolve } };
 });
 
-vi.mock("../components/native-link-menu.runtime.ts", async (importOriginal) => {
+vi.mock("../components/native-link-menu.runtime.tsx", async (importOriginal) => {
   menuLoad.started();
   await menuLoad.ready.promise;
   return importOriginal();

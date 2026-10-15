@@ -2,7 +2,7 @@ import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDeferred } from "../../../test/helpers/promise.js";
 import { LitContent } from "../lit/solid-content.tsx";
-import { renderWorkspaceConflictNotice } from "../pages/chat/components/chat-workspace-conflict.ts";
+import { renderWorkspaceConflictNotice } from "../pages/chat/components/chat-workspace-conflict.tsx";
 import { DevicePairSetup } from "../pages/devices/view-pairing.tsx";
 import { cleanupSolid, mountSolid } from "../test-helpers/mount-solid.ts";
 import { WizardStepControls } from "./wizard-step-controls.tsx";

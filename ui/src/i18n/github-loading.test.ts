@@ -18,7 +18,7 @@ it.each([
   },
   {
     surface: "CI details",
-    load: () => import("../pages/chat/components/chat-ci-details.ts"),
+    load: () => import("../pages/chat/components/chat-ci-details.tsx"),
   },
   {
     surface: "session hovercard",

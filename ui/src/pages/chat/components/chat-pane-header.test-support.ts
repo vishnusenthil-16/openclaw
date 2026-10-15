@@ -4,7 +4,7 @@ import { expect, vi } from "vitest";
 import type { GatewaySessionRow } from "../../../api/types.ts";
 import { LitContent } from "../../../lit/solid-content.tsx";
 import { mountSolid } from "../../../test-helpers/mount-solid.ts";
-import { renderChatPaneHeader } from "./chat-pane-header.ts";
+import { renderChatPaneHeader } from "./chat-pane-header.tsx";
 
 export type ChatPaneHeaderProps = Parameters<typeof renderChatPaneHeader>[0];
 

@@ -25,7 +25,7 @@ import {
   preparePaneSessionHandoff,
 } from "./chat-pane-shared.ts";
 import { canCreateChatSession } from "./chat-state-route.ts";
-import { resolveChatPaneParentSession } from "./components/chat-pane-header.ts";
+import { resolveChatPaneParentSession } from "./components/chat-pane-header.tsx";
 
 /** Creates or resets a conversation while guarding its asynchronous ownership. */
 export abstract class ChatPaneSessionCreation extends ChatPaneRetainedPresentation {

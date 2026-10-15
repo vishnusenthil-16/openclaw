@@ -2,7 +2,7 @@ import { html } from "lit";
 import type { ApplicationContext } from "../app/context.ts";
 import { createIdleImport } from "../lib/idle-import.ts";
 
-const renderer = createIdleImport(() => import("./session-background.ts"));
+const renderer = createIdleImport(() => import("./session-background.tsx"));
 
 /** Unset/None startup needs no image renderer, styles, transport, or geometry work. */
 export function renderSessionBackground(

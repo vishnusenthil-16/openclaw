@@ -18,7 +18,7 @@ import {
 import { settleRoster } from "./roster.test-support.ts";
 import "../../components/app-sidebar.tsx";
 
-await import("../../components/viewer-facepile.ts");
+await import("../../components/solid/viewer-facepile.tsx");
 
 describe("AppSidebar community entry", () => {
   it("follows the deployment flag without using the old invitation dismissal", async () => {

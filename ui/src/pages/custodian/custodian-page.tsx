@@ -1,7 +1,7 @@
 import type { SystemChangeEntry, SystemChangesListResult } from "@openclaw/gateway-protocol";
 import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { GatewayBrowserClient } from "../../api/gateway.ts";
-import "../../components/openclaw-mascot.ts";
+import "../../components/openclaw-mascot.tsx";
 import { channelSnapshotHasActiveChannel } from "../../lib/channels/index.ts";
 import { isGatewayMethodAdvertised } from "../../lib/gateway-methods.ts";
 import { projectGateway } from "../../lib/reactive/application.ts";

@@ -12,7 +12,7 @@ import { SessionDetailsController } from "../../components/session-details-contr
 import { hasSessionArchiveDescendants } from "../../components/session-menu-descendants.ts";
 import { fetchSessionMenuWork } from "../../components/session-menu-work.ts";
 import { moveSessionFromMenu } from "../../components/session-placement-action.ts";
-import "../../components/session-menu.ts";
+import "../../components/session-menu-solid.tsx";
 import {
   formatBatchSessionRemovalError,
   withSessionWorkspaceRecovery,

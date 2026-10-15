@@ -21,8 +21,8 @@ import {
   createTestChatPane,
 } from "../chat-pane.test-support.ts";
 import type { ChatPageHost } from "../chat-state-host.ts";
-import type { HeaderMenuAction } from "./chat-header-session-menu.ts";
-import "./chat-header-session-menu.ts";
+import type { HeaderMenuAction } from "./chat-header-session-menu.tsx";
+import "./chat-header-session-menu.tsx";
 import type { ChatSessionSharingProps } from "./chat-session-sharing.ts";
 import { openNativeSessionMenu } from "./native-session-menu.runtime.ts";
 
