@@ -12,6 +12,7 @@ import {
 } from "../../../test/helpers/openclaw-test-instance.ts";
 import { runQaGatewayFixture } from "../../../test/helpers/qa-gateway-cleanup.ts";
 import { createRequireRecord } from "../../../test/helpers/record.js";
+import type { ConfigSnapshot } from "../api/types.ts";
 import { getControlUiContextHandle } from "../test-helpers/control-ui-e2e-context.ts";
 import {
   waitForControlUiGatewayReady,
@@ -528,17 +529,22 @@ suite.define(() => {
         });
         const params = {
           raw: JSON.stringify({ models: { providers: { fixture: { models: models(id) } } } }),
+          replacePaths: ["models.providers.fixture.models"],
           response: "summary",
         };
         try {
           const startedAt = Date.now();
           // The CLI acknowledges persistence; this fixture needs runtime application.
-          const result = await applicationHandle.evaluate((application, params) => {
+          const result = await applicationHandle.evaluate(async (application, patchParams) => {
             const client = application.gateway.snapshot.client;
             if (!client) {
               throw new Error("Catalog publication requires a connected Gateway");
             }
-            return client.request("config.patch", params);
+            const configuration = await client.request<ConfigSnapshot>("config.get", {});
+            return client.request("config.patch", {
+              ...patchParams,
+              baseHash: configuration.hash,
+            });
           }, params);
           commands.push({
             method: "config.patch",
