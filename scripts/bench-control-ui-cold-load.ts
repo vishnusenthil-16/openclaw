@@ -348,7 +348,9 @@ try {
       }
       const { delayMs, ...response } = asset;
       if (delayMs) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
       }
       return route.fulfill(response);
     });
