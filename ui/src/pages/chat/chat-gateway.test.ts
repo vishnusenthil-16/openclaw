@@ -1326,7 +1326,13 @@ describe("loadChatHistory filtering", () => {
           type: "hello-ok",
           protocol: 4,
           auth: { role: "operator", scopes: [] },
-          snapshot: { sessionDefaults: { defaultAgentId: "ops" } },
+          snapshot: {
+            sessionDefaults: {
+              defaultAgentId: "ops",
+              mainKey: "main",
+              mainSessionKey: "agent:ops:main",
+            },
+          },
         },
       },
     );

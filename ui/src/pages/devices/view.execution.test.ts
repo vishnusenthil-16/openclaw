@@ -9,6 +9,7 @@ import {
   getDevicesSection as getSection,
   getDeviceSettingsRow as getSettingsRow,
 } from "../../test-helpers/devices-view.tsx";
+import type { DevicesProps } from "./view.types.ts";
 
 afterEach(() => document.body.replaceChildren());
 
@@ -326,7 +327,7 @@ describe("devices agent bindings", () => {
     );
     const container = document.createElement("div");
     document.body.append(container);
-    const renderBindings = (inventory: Array<Record<string, unknown>>, unavailable: boolean) => {
+    const renderBindings = (inventory: DevicesProps["nodes"], unavailable: boolean) => {
       renderDevicesInto(
         container,
         createDevicesViewProps({ nodes: inventory, configForm, onBindDefault, onBindAgent }),

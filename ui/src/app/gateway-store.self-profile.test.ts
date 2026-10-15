@@ -130,6 +130,7 @@ describe("Gateway self-profile ownership", () => {
         snapshot: {
           presence: [
             {
+              ts: 0,
               instanceId: current().instanceId,
               user: {
                 id: profile.id,

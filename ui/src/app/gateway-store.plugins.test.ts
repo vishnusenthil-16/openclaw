@@ -171,6 +171,7 @@ describe("plugin capabilities", () => {
       snapshot: {
         presence: [
           {
+            ts: 0,
             instanceId: current().instanceId,
             user: { id: "reader", identity: { type: "profile", id: "reader" } },
           },
