@@ -706,6 +706,7 @@ try {
           const read = Reflect.get(window, "__readColdLoadRigProbes");
           Reflect.set(window, "__coldLoadRigLiveStart", read());
           setTimeout(() => Reflect.set(window, "__coldLoadRigLateStart", read()), 5_000);
+          setTimeout(() => Reflect.set(window, "__coldLoadRigQuietStart", read()), 15_000);
         }
         Reflect.get(window, "__coldLoad").startLive();
       }, Boolean(rigProbeScript));
@@ -801,6 +802,7 @@ try {
           ? await page.evaluate(() => ({
               start: Reflect.get(window, "__coldLoadRigLiveStart"),
               lateStart: Reflect.get(window, "__coldLoadRigLateStart"),
+              quietStart: Reflect.get(window, "__coldLoadRigQuietStart"),
               end: Reflect.get(window, "__readColdLoadRigProbes")(),
             }))
           : undefined,
