@@ -435,23 +435,6 @@ describe("update-startup", () => {
     expect(resolveNpmChannelTag).not.toHaveBeenCalled();
   });
 
-  it("does not throttle invalid update-check clocks against persisted state", async () => {
-    writePersistedUpdateCheckState({
-      lastCheckedAt: "2026-01-17T09:30:00.000Z",
-    });
-    mockPackageUpdateStatus("latest", "2.0.0");
-    vi.spyOn(Date, "now").mockReturnValue(8_640_000_000_000_001);
-
-    await runGatewayUpdateCheck({
-      cfg: { update: { channel: "stable" } },
-    });
-
-    expect(checkUpdateStatus).toHaveBeenCalledTimes(1);
-    const parsed = readPersistedUpdateCheckState();
-    expect(parsed?.lastCheckedAt).toBe("1970-01-01T00:00:00.000Z");
-    expect(parsed?.lastAvailableVersion).toBe("2.0.0");
-  });
-
   it.each([
     {
       channel: "stable" as const,

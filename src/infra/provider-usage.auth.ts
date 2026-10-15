@@ -56,6 +56,10 @@ type UsageAuthState = {
   allowAuthProfileStore: boolean;
   getStore?: () => AuthStore | Promise<AuthStore>;
   store?: AuthStore;
+  manifests: {
+    snapshot?: ReturnType<typeof loadManifestMetadataSnapshot>;
+    eligiblePlugins?: PluginManifestRecord[];
+  };
 };
 
 async function resolveUsageAuthStore(state: UsageAuthState): Promise<AuthStore> {
@@ -104,6 +108,8 @@ function hasProviderAuthEnvCredentialSource(params: {
       ...(process.env.VITEST ? process.env : {}),
       ...params.state.env,
     },
+    // The Vitest overlay has a distinct discovery environment from the usage operation.
+    metadataSnapshot: process.env.VITEST ? undefined : params.state.manifests.snapshot,
   });
   return normalizeProviderIds(params.providerIds).some((providerId) => {
     const envVars = Object.hasOwn(candidates, providerId) ? candidates[providerId] : undefined;
@@ -119,20 +125,13 @@ function hasProviderUsageAuthEnvCredentialSource(params: {
 }): boolean {
   const providerIds = new Set(normalizeProviderIds(params.providerIds));
   try {
-    const snapshot = loadManifestMetadataSnapshot({
-      config: params.state.cfg,
-      env: params.state.env,
-    });
-    return snapshot.plugins.some((plugin) => {
-      if (!isUsageProviderManifestEligible({ plugin, state: params.state })) {
-        return false;
-      }
-      return Object.entries(plugin.providerUsageAuthEnvVars ?? {}).some(
+    return resolveEligibleUsageProviderManifests(params.state).some((plugin) =>
+      Object.entries(plugin.providerUsageAuthEnvVars ?? {}).some(
         ([providerId, envVars]) =>
           providerIds.has(normalizeProviderId(providerId)) &&
           envVars.some((envVar) => Boolean(normalizeSecretInput(params.state.env[envVar]))),
-      );
-    });
+      ),
+    );
   } catch {
     return false;
   }
@@ -237,27 +236,21 @@ function normalizeProviderIds(providerIds: Iterable<string | undefined>): string
   );
 }
 
-function isUsageProviderManifestEligible(params: {
-  plugin: PluginManifestRecord;
-  state: UsageAuthState;
-}): boolean {
-  const normalizedConfig = normalizePluginsConfig(params.state.cfg.plugins);
-  if (
-    !passesManifestOwnerBasePolicy({
-      plugin: params.plugin,
-      normalizedConfig,
-    })
-  ) {
-    return false;
+function resolveEligibleUsageProviderManifests(state: UsageAuthState): PluginManifestRecord[] {
+  if (state.manifests.eligiblePlugins) {
+    return state.manifests.eligiblePlugins;
   }
-  if (params.plugin.origin !== "workspace") {
-    return true;
-  }
-  return isActivatedManifestOwner({
-    plugin: params.plugin,
-    normalizedConfig,
-    rootConfig: params.state.cfg,
-  });
+  const snapshot = (state.manifests.snapshot ??= loadManifestMetadataSnapshot({
+    config: state.cfg,
+    env: state.env,
+  }));
+  const normalizedConfig = normalizePluginsConfig(state.cfg.plugins);
+  return (state.manifests.eligiblePlugins = snapshot.plugins.filter(
+    (plugin) =>
+      passesManifestOwnerBasePolicy({ plugin, normalizedConfig }) &&
+      (plugin.origin !== "workspace" ||
+        isActivatedManifestOwner({ plugin, normalizedConfig, rootConfig: state.cfg })),
+  ));
 }
 
 function resolveUsageCredentialProviderIds(params: {
@@ -267,16 +260,9 @@ function resolveUsageCredentialProviderIds(params: {
   const providerIds = new Set(normalizeProviderIds([params.provider]));
   const providerIdSet = new Set(providerIds);
   try {
-    const snapshot = loadManifestMetadataSnapshot({
-      config: params.state.cfg,
-      env: params.state.env,
-    });
-    for (const plugin of snapshot.plugins) {
+    for (const plugin of resolveEligibleUsageProviderManifests(params.state)) {
       const pluginProviderIds = normalizeProviderIds(plugin.providers);
       if (!pluginProviderIds.some((providerId) => providerIdSet.has(providerId))) {
-        continue;
-      }
-      if (!isUsageProviderManifestEligible({ plugin, state: params.state })) {
         continue;
       }
       for (const providerId of pluginProviderIds) {
@@ -406,11 +392,13 @@ export async function resolveProviderAuths(params: {
     return params.auth;
   }
 
+  const manifests: UsageAuthState["manifests"] = {};
   const stateBase = {
     signal: params.signal,
     cfg: params.config ?? getRuntimeConfig(),
     env: params.env ?? process.env,
     agentDir: params.agentDir,
+    manifests,
   };
   const authProfileSourceState: UsageAuthState = {
     ...stateBase,

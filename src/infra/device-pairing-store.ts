@@ -261,13 +261,13 @@ function readPairedDevicePairingRecordsFromDatabase(
 
 export function loadDevicePairingStoreState(baseDir?: string): DevicePairingStoreState {
   const database = openOpenClawStateDatabase(resolveDevicePairingStateDbOptions(baseDir));
-  return structuredClone(
-    database.db.isTransaction
-      ? readDevicePairingStoreStateFromDatabase(database.db)
-      : readCachedDevicePairingStoreSnapshot(database.db, database.path, () =>
+  return database.db.isTransaction
+    ? readDevicePairingStoreStateFromDatabase(database.db)
+    : structuredClone(
+        readCachedDevicePairingStoreSnapshot(database.db, database.path, () =>
           readDevicePairingStoreSnapshotFromDatabase(database.db),
         ).state,
-  );
+      );
 }
 
 /** Load one paired-device row from an existing shared-state transaction. */

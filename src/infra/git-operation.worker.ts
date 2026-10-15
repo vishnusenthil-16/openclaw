@@ -1,4 +1,3 @@
-import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { runTasksWithConcurrency } from "../utils/run-with-concurrency.js";
 import { serializeGitWorkerFailure, withGitWorkerContext } from "./git-worker-context.js";
 import type { GitWorkerCommand, GitWorkerReply, GitWorkerResult } from "./git-worker-contract.js";
@@ -7,12 +6,7 @@ import { serveWorkerTasks } from "./worker-task-server.js";
 serveWorkerTasks<GitWorkerReply<GitWorkerResult>>(
   async (input, channel, control) => {
     try {
-      if (
-        !channel ||
-        !isRecord(input) ||
-        typeof input.type !== "string" ||
-        !isRecord(input.input)
-      ) {
+      if (!channel) {
         throw new Error("Git worker requires a typed operation and host channel");
       }
       // SAFETY: This private entry consumes only commands created by its typed host broker.

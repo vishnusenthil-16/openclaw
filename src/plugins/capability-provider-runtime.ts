@@ -262,14 +262,10 @@ function shouldScopeCapabilityLoadToRequestedProviders(
   );
 }
 
-function* capabilityProviderIds(provider: { id: string; aliases?: unknown }) {
+function* capabilityProviderIds(provider: { id: string; aliases?: readonly string[] }) {
   yield provider.id.toLowerCase();
-  if (Array.isArray(provider.aliases)) {
-    for (const alias of provider.aliases) {
-      if (typeof alias === "string") {
-        yield alias.toLowerCase();
-      }
-    }
+  for (const alias of provider.aliases ?? []) {
+    yield alias.toLowerCase();
   }
 }
 

@@ -1,7 +1,6 @@
 import type { Node as TreeSitterNode } from "web-tree-sitter";
 import {
   detectCarriedShellBuiltinArgv,
-  detectCarrierInlineEvalArgv as detectSharedCarrierInlineEvalArgv,
   detectCommandCarrierArgv,
   detectInlineEvalArgv,
   detectShellWrapperThroughCarrierArgv,
@@ -626,7 +625,7 @@ function recordCommandRisks(
       span: argument.span,
     });
   }
-  const inlineEval = detectInlineEvalArgv(argv) ?? detectSharedCarrierInlineEvalArgv(argv);
+  const inlineEval = detectInlineEvalArgv(argv);
   if (inlineEval) {
     output.risks.push({
       kind: "inline-eval",

@@ -37,10 +37,9 @@ export async function writeGeneratedHtmlProvenance(
   context: OpenClawStateWorkerContext,
   command: SqliteWorkerCommand<GeneratedHtmlProvenanceOperations>,
 ): Promise<number> {
-  const captured = structuredClone(command);
   let admission: SqliteWorkerOperationAdmission | undefined;
   try {
-    return await runOpenClawStateWorkerOperation(context, (scope) => scope.execute(captured), {
+    return await runOpenClawStateWorkerOperation(context, (scope) => scope.execute(command), {
       createAdmission: () => {
         admission = createSqliteWorkerOperationAdmission((_request, grant) => {
           context.admission.assertCurrent();
@@ -53,7 +52,7 @@ export async function writeGeneratedHtmlProvenance(
     const receipt = admission?.committed ?? admission?.settlement?.committed;
     if (
       isRecord(receipt?.facts) &&
-      receipt.facts.type === captured.type &&
+      receipt.facts.type === command.type &&
       typeof receipt.facts.result === "number"
     ) {
       return receipt.facts.result;

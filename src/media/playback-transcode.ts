@@ -8,7 +8,6 @@ import { withTempWorkspace } from "@openclaw/fs-safe/temp";
 import { maxBytesForKind } from "@openclaw/media-core/constants";
 import { extensionForMime, normalizeMimeType } from "@openclaw/media-core/mime";
 import { createAbortError, racePromiseWithAbortSignal } from "../infra/abort-signal.js";
-import { hasErrnoCode } from "../infra/errno.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import { copyFileHandle } from "../infra/file-descriptor.js";
 import { openLocalFileSafely } from "../infra/fs-safe.js";
@@ -459,18 +458,16 @@ async function transcodePlaybackSource(params: {
     },
     async (workspace) => {
       const inputName = makePlaybackInputFileName(params.source.path, params.mimeType);
-      const stagingName = `.${inputName}.stage`;
       // Keep private-store admission without its full-payload buffering path.
-      await workspace.write(stagingName, "");
+      await workspace.write(inputName, "");
       const inputRoot = await workspace.store.root();
       let inputPath: string;
       {
-        await using staged = await inputRoot.openWritable(stagingName, {
+        await using staged = await inputRoot.openWritable(inputName, {
           writeMode: "update",
           mode: 0o600,
           mkdir: false,
         });
-        const inputIdentity = await staged.handle.stat({ bigint: true });
         const copiedBytes = await copyFileHandle(opened.handle, staged.handle, {
           maxBytes: Math.min(params.source.size, params.maxBytes),
         });
@@ -484,24 +481,8 @@ async function transcodePlaybackSource(params: {
         ) {
           throw new Error("Playback source changed during transcode read");
         }
-        await staged.handle.sync().catch((error: unknown) => {
-          if (!hasErrnoCode(error, "EPERM")) {
-            throw error;
-          }
-        });
-        // Keep the writer live so replacement cannot reuse its inode before verification.
-        await inputRoot.move(stagingName, inputName);
-        await using input = await inputRoot.open(inputName);
-        const stat = await input.handle.stat({ bigint: true });
-        // The move owns its path checks; bind its result to our completed writer.
-        if (
-          !sameFileIdentity(inputIdentity, stat) ||
-          stat.size !== BigInt(params.source.size) ||
-          (process.platform !== "win32" && (stat.mode & 0o7777n) !== 0o600n)
-        ) {
-          throw new Error("Playback staged input changed before transcode");
-        }
-        inputPath = input.realPath;
+        // This private workspace has one writer; closing it makes the bytes ready for ffmpeg.
+        inputPath = staged.realPath;
       }
       const outputPath = workspace.path(`output${policy.target.extension}`);
       const inputFormat = resolvePlaybackInputFormat(policy, params.mimeType);

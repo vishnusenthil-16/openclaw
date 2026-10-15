@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { AliasedExpression } from "kysely";
 import { getNodeSqliteKysely, iterateSqliteQuerySync } from "./kysely-sync.js";
 import { SqliteJsonlReadBudgetExceededError } from "./sqlite-jsonl-budget-error.js";
+import { readSqliteTextEncoding } from "./sqlite-schema-admission.js";
 
 /** Admit a filtered JSONL source inside the caller's payload-read transaction. */
 export function assertSqliteJsonlReadBudget(
@@ -15,7 +16,7 @@ export function assertSqliteJsonlReadBudget(
   label: string,
   options: { hasExactUtf8Bytes?: boolean; separatorBytes?: number; maxRows?: number } = {},
 ): void {
-  const db = getNodeSqliteKysely<{ pragma_encoding: { encoding: string } }>(database);
+  const db = getNodeSqliteKysely(database);
   const rejectOverflow = (bytes: number) => {
     if (bytes > budget) {
       throw new SqliteJsonlReadBudgetExceededError(
@@ -34,7 +35,6 @@ export function assertSqliteJsonlReadBudget(
       .select((eb) => [
         eb.fn<number | null>("octet_length", ["event_json"]).as("bytes"),
         (options.hasExactUtf8Bytes ? eb.ref("event_utf8_bytes") : eb.val(null)).as("utf8_bytes"),
-        eb.selectFrom("pragma_encoding").select("encoding").as("encoding"),
       ])
       .$if(options.maxRows !== undefined, (query) => query.limit(options.maxRows! + 1)),
   );
@@ -44,6 +44,7 @@ export function assertSqliteJsonlReadBudget(
   let knownBytes = 0;
   let separators = 0;
   let unknownRows = 0;
+  let encoding: string | undefined;
   for (const row of sizes) {
     rowCount += 1;
     if (options.maxRows !== undefined && rowCount > options.maxRows) {
@@ -51,7 +52,9 @@ export function assertSqliteJsonlReadBudget(
         `${label} has too many rows to export (at least ${rowCount}; limit ${options.maxRows})`,
       );
     }
-    const exact = row.utf8_bytes ?? (row.encoding === "UTF-8" ? row.bytes : null);
+    const exact =
+      row.utf8_bytes ??
+      ((encoding ??= readSqliteTextEncoding(database)) === "UTF-8" ? row.bytes : null);
     if (exact === null && row.bytes === null) {
       throw new Error(`${label} has a transcript row without byte metadata or identity text`);
     }

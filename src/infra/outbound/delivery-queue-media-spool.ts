@@ -208,7 +208,9 @@ export async function releaseSpoolArtifacts(
     if (relative) {
       try {
         await openSpoolStore(stateDir).remove(relative);
-      } catch {}
+      } catch {
+        // The durable row is gone; orphan pruning retries artifact cleanup later.
+      }
     }
   }
 }

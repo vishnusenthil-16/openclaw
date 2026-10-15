@@ -83,14 +83,10 @@ function observeSqliteWalCheckpointHealth(
 }
 
 function notifyCheckpoint(databasePath: string, snapshot: SqliteWalCheckpointSnapshot): void {
+  const observation = { databasePath: sqliteReaderDatabasePathKey(databasePath), ...snapshot };
   for (const listener of checkpointListeners) {
     try {
-      listener({
-        databasePath: sqliteReaderDatabasePathKey(databasePath),
-        health: structuredClone(snapshot.health),
-        observedAtNs: snapshot.observedAtNs,
-        lastCompletedAtNs: snapshot.lastCompletedAtNs,
-      });
+      listener(observation);
     } catch {
       // Diagnostic consumers cannot change the native checkpoint's outcome.
     }
@@ -277,13 +273,20 @@ export function createSqliteWalCheckpoint(
         (snapshot?.lastCompletedAtNs ?? 0n) > (received.lastCompletedAtNs ?? 0n)
           ? snapshot
           : received;
-      if (!snapshot || received.observedAtNs > snapshot.observedAtNs) {
-        snapshot = structuredClone(received);
-      }
-      snapshot.lastCompletedAtNs = completed?.lastCompletedAtNs;
-      snapshot.health.lastCompletedAtMs = completed?.health.lastCompletedAtMs ?? null;
+      const latest =
+        !snapshot || received.observedAtNs > snapshot.observedAtNs ? received : snapshot;
+      const health = {
+        ...latest.health,
+        lastCompletedAtMs: completed?.health.lastCompletedAtMs ?? null,
+      };
+      snapshot = {
+        ...latest,
+        lastCompletedAtNs: completed?.lastCompletedAtNs,
+        health: options.databasePath
+          ? observeSqliteWalCheckpointHealth(options.databasePath, health)
+          : health,
+      };
       if (options.databasePath) {
-        snapshot.health = observeSqliteWalCheckpointHealth(options.databasePath, snapshot.health);
         notifyCheckpoint(options.databasePath, snapshot);
       }
     },
@@ -311,10 +314,10 @@ export function createSqliteWalCheckpoint(
       );
     },
     get health() {
-      return snapshot ? structuredClone(snapshot.health) : undefined;
+      return snapshot?.health;
     },
     get snapshot() {
-      return snapshot ? structuredClone(snapshot) : undefined;
+      return snapshot;
     },
   };
 }

@@ -124,7 +124,7 @@ export function encodeAgentDatabaseReaderRequest(request: AgentDatabaseReaderReq
   if (request.kind === "revive") {
     return JSON.stringify({ revive: request.agentIds });
   }
-  const candidates = normalizeCandidates(request.candidates) ?? [];
+  const candidates = request.candidates;
   return request.deleted
     ? JSON.stringify({ deleted: candidates, agentId: request.agentId })
     : JSON.stringify(

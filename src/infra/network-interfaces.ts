@@ -8,16 +8,6 @@ type ExternalNetworkInterfaceAddress = {
   family: NetworkInterfaceFamily;
 };
 
-function normalizeNetworkInterfaceFamily(
-  family: string | number | undefined,
-): NetworkInterfaceFamily | undefined {
-  // Node versions and test fixtures can expose family as either string or number.
-  if (family === "IPv4" || family === 4) {
-    return "IPv4";
-  }
-  return family === "IPv6" || family === 6 ? "IPv6" : undefined;
-}
-
 /** Best-effort interface read that returns undefined when OS inspection fails. */
 export function safeNetworkInterfaces(
   networkInterfaces: () => NetworkInterfacesSnapshot = os.networkInterfaces,
@@ -43,8 +33,8 @@ export function listExternalInterfaceAddresses(
       if (!address) {
         continue;
       }
-      const entryFamily = normalizeNetworkInterfaceFamily(entry.family);
-      if (!entryFamily || (family && entryFamily !== family)) {
+      const entryFamily = entry.family;
+      if (family && entryFamily !== family) {
         continue;
       }
       addresses.push({ name, address, family: entryFamily });

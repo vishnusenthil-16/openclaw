@@ -138,9 +138,6 @@ async function drainHostRequests(state: GitWorkerContext): Promise<void> {
         try {
           // SAFETY: The private host returns one result per typed request in the same order.
           const replies = response.input as GitWorkerReply<unknown>[];
-          if (!Array.isArray(replies) || replies.length !== pending.length) {
-            throw new Error("Git host returned an incomplete batch");
-          }
           for (const [index, entry] of pending.entries()) {
             const reply = replies[index]!;
             if (reply.ok) {

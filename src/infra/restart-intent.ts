@@ -427,7 +427,9 @@ export function clearGatewayRestartIntentSync(
       { env },
       { schemaSql: schema, operationLabel: "gateway.restart-intent.clear" },
     );
-  } catch {}
+  } catch {
+    // Preserve the restart failure; consumption rejects unmatched or expired leftover intents.
+  }
 }
 
 /** Consume the exact row once, after the shared writer's earlier accepted work. */

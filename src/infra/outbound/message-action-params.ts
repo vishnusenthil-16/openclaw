@@ -524,7 +524,7 @@ export async function hydrateAttachmentParamsForAction(params: {
   const rawBuffer = readToolStringParam(params.args, "buffer", { trim: false });
   const normalized = normalizeBase64Payload({
     base64: rawBuffer,
-    contentType: contentTypeParam ?? undefined,
+    contentType: contentTypeParam,
   });
   if (normalized.base64 !== rawBuffer && normalized.base64) {
     params.args.buffer = normalized.base64;
@@ -553,7 +553,7 @@ export async function hydrateAttachmentParamsForAction(params: {
     if (!filename) {
       params.args.filename = inferAttachmentFilename({
         mediaHint: media.fileName ?? mediaSource,
-        contentType: media.contentType ?? contentTypeParam ?? undefined,
+        contentType: media.contentType ?? contentTypeParam,
       });
     }
   } else if (!filename) {

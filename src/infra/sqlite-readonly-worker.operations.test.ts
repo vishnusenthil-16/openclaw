@@ -24,6 +24,7 @@ import {
   closeSqliteReadOnlyWorkersForBroker,
   createScopedSqliteReadOnlyWorker,
   createSqliteReadOnlyWorkerScope,
+  prepareSqliteReadOnlyOperationCommand,
   runSqliteReadOnlyOperation,
 } from "./sqlite-readonly-worker.js";
 import { readDatabasePathIdentitySync } from "./sqlite-worker-identity.js";
@@ -461,7 +462,10 @@ it("quarantines failed cleanup without poisoning healthy capacity or launching a
         source: "canonical",
         expectedIdentity,
         env,
-        command: { type: "pluginCatalog.read", input: { agentId: "main", pluginIds: ["small"] } },
+        command: prepareSqliteReadOnlyOperationCommand({
+          type: "pluginCatalog.read",
+          input: { agentId: "main", pluginIds: ["small"] },
+        }),
       },
       launch,
     );
@@ -518,10 +522,10 @@ it.skipIf(process.platform !== "linux")(
               source: "canonical",
               expectedIdentity,
               env,
-              command: {
+              command: prepareSqliteReadOnlyOperationCommand({
                 type: "pageCache.begin",
                 input: { kind: "agent", maxBytes: 1024, now: Date.now() },
-              },
+              }),
             },
             launch,
           ),
@@ -534,7 +538,10 @@ it.skipIf(process.platform !== "linux")(
           source: "canonical",
           expectedIdentity,
           env,
-          command: { type: "pluginCatalog.read", input: { agentId: "main", pluginIds: ["small"] } },
+          command: prepareSqliteReadOnlyOperationCommand({
+            type: "pluginCatalog.read",
+            input: { agentId: "main", pluginIds: ["small"] },
+          }),
         },
         launch,
       );

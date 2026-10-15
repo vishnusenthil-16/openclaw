@@ -11,7 +11,7 @@ const TELEMETRY_STATE_KEY = "telemetry.updateCheck";
 
 export function readTelemetryStateInWorker(options: OpenClawStateDatabaseOptions): TelemetryState {
   const state = readConfigMachineState<TelemetryState>(TELEMETRY_STATE_KEY, options);
-  return state && isRecord(state) ? state : {};
+  return isRecord(state) ? state : {};
 }
 
 export function countRecentTelemetrySessionsInDatabase(

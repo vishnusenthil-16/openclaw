@@ -621,7 +621,7 @@ function inferChatTypeFromTarget(params: {
     resolveOutboundChannelPlugin({
       channel: params.channel,
     });
-  return plugin?.messaging?.inferTargetChatType?.({ to }) ?? undefined;
+  return plugin?.messaging?.inferTargetChatType?.({ to });
 }
 
 /** Resolves the sender id/allow-list context used for heartbeat sends. */

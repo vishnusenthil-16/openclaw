@@ -11,7 +11,6 @@ import path from "node:path";
 import { formatInstallationTargetCommand } from "../cli/installation-target-format.js";
 import { resolveConfigPath, resolveStateDir } from "../config/paths.js";
 import { resolveServiceManagerEnv } from "../daemon/service-process-env.js";
-import { resolveSystemdServiceName } from "../daemon/systemd-service-files.js";
 import { forceKillChildProcessTree } from "../process/child-process-tree.js";
 import {
   GatewayDrainingError,
@@ -125,7 +124,7 @@ if (!params.updateLeaseDatabaseIdentity) {
   throw new Error("Managed handoff requires its prepared lease database identity");
 }
 let leaseStore;
-let isPidAlive, parseSystemdProperties, validTriageFailure;
+let isPidAlive, parseSystemdProperties;
 const runWarnings = new Map();
 if (params.operatorRestartWarning) runWarnings.set("warning:managed-service-reconciliation", params.operatorRestartWarning);
 function recordRunWarnings(ledger) {
@@ -138,11 +137,6 @@ function recordRunWarnings(ledger) {
   }
 }
 let managedUpdateLease = null;
-let triageRequesterAuthority;
-function assertTriageRequester() {
-  if (triageRequesterAuthority && !triageRequesterAuthority.isCurrent())
-    throw new Error("requester-revoked");
-}
 let activeCommand;
 let finalExitCode = 0;
 let updateCancelled = false;
@@ -233,14 +227,20 @@ function openStateDatabase() {
       for (const suffix of ["", "-wal", "-shm"]) {
         try {
           fs.chmodSync(params.stateDatabasePath + suffix, 0o600);
-        } catch {}
+        } catch (error) {
+          if (suffix && error?.code === "ENOENT") {
+            // Optional SQLite sidecars may disappear before mode repair.
+            continue;
+          }
+          appendLog("failed to secure restart sentinel database" + suffix + ": " + String(error));
+        }
       }
     });
     return db;
   } catch (err) {
     try {
       db?.close();
-    } catch {}
+    } catch { /* Preserve the initialization error reported below. */ }
     appendLog(
       "failed to open restart sentinel database: " + (err && err.stack ? err.stack : String(err)),
     );
@@ -259,11 +259,7 @@ process.on("SIGTERM", () => {
   if (terminationRequested) return;
   terminationRequested = true;
   appendLog("managed handoff termination requested; waiting for owned command settlement");
-  if (params.action === "triage") {
-    if (managedUpdateLease) leaseStore.settle(managedUpdateLease, "closing");
-    appendLog("automatic triage cancelled by termination signal; no Gateway restoration");
-    stopTriageScope();
-  } else if (activeCommand && activeCommand.exitCode === null && activeCommand.signalCode === null) {
+  if (activeCommand && activeCommand.exitCode === null && activeCommand.signalCode === null) {
     // The updater owns rollback and accepted writes. Signal only its direct process,
     // then join its result before releasing the lease or deciding native recovery.
     activeCommand.kill("SIGTERM");
@@ -280,7 +276,6 @@ const parseLaunchdPid = (stdout) => Number(/^\s*pid\s*=\s*([1-9]\d*)\s*$/im.exec
 
 let parkedServiceGeneration = null;
 let parkedServiceInvocation = null;
-let parkedServiceFragment = null;
 let restorationArmed = false;
 let updaterStarted = false;
 let pendingServiceStop;
@@ -351,7 +346,6 @@ async function parkGatewayService() {
     assertGatewayParkOwner();
     parkedServiceGeneration = current.ExecMainStartTimestampMonotonic;
     parkedServiceInvocation = current.InvocationID;
-    parkedServiceFragment = current.FragmentPath;
   } else {
     if (recovery.kind !== "launchd") throw new Error("unsupported managed update supervisor");
     target = "gui/" + recovery.uid + "/" + recovery.label;
@@ -694,9 +688,9 @@ function killOwnedCommand(child) {
       env: params.serviceManagerEnv, stdio: "ignore", windowsHide: true, timeout: 5000,
     });
   } else {
-    try { process.kill(-child.pid, "SIGKILL"); } catch {}
+    try { process.kill(-child.pid, "SIGKILL"); } catch { /* The group may already be gone; child close must still settle. */ }
   }
-  try { child.kill("SIGKILL"); } catch {}
+  try { child.kill("SIGKILL"); } catch { /* Close, not a successful kill request, decides child settlement. */ }
 }
 
 
@@ -751,9 +745,8 @@ async function collectUpdateFailureTriage() {
       if (runLedger && !updaterStarted) recordRunWarnings(runLedger);
     },
   }, { warn: (message, metadata) => appendLog(message + " " + JSON.stringify(metadata)) });
-  ({ isPidAlive, properties: parseSystemdProperties, validFailure: validTriageFailure } = leaseStore);
+  ({ isPidAlive, properties: parseSystemdProperties } = leaseStore);
   if (
-    !params.triageTransition &&
     (!Number.isInteger(params.parentPid) ||
       params.parentPid <= 0 ||
       typeof params.parentStartIdentity !== "string" ||
@@ -762,14 +755,13 @@ async function collectUpdateFailureTriage() {
     throw new Error("managed update parent process identity is unavailable");
   }
   if (
-    !params.triageTransition &&
     isPidAlive(params.parentPid) &&
     !parentIdentityCurrent()
   ) {
     throw new Error("managed update parent process identity changed");
   }
   if (
-    !["update", "triage"].includes(params.action) ||
+    params.action !== "update" ||
     !Number.isFinite(params.parentExitTimeoutMs) ||
     params.parentExitTimeoutMs < 0 ||
     !Number.isFinite(params.parentExitDeadlineAt)
@@ -784,17 +776,17 @@ async function collectUpdateFailureTriage() {
     await sleep(25);
     return;
   }
-  let outcome = params.triageTransition ? "triage" : undefined;
+  let outcome;
   let wake;
   wakeTermination = () => wake?.();
   let deadlineExpired = false;
   const parentExitDeadline = setTimeout(() => {
     deadlineExpired = true;
-    if (outcome !== "update" && outcome !== "triage") outcome = "restore";
+    if (outcome !== "update") outcome = "restore";
     wake?.();
   }, params.parentExitTimeoutMs);
   try {
-    if (params.action === "update" && params.runId) {
+    if (params.runId) {
       // Admission and stop recording use the serving runtime. Terminal writes after
       // the updater starts must load the installed runtime in a fresh process.
       runLedger = await import(pathToFileURL(params.recoveryModulePath).href);
@@ -807,16 +799,8 @@ async function collectUpdateFailureTriage() {
       recordRunWarnings(runLedger);
       if (params.foregroundOrigin) await assertForegroundOrigin();
     }
-    if (params.action === "triage") {
-      await admitTriageScope();
-      if (params.requester) {
-        const { createManagedUpdateRequesterAuthority } = await import(pathToFileURL(path.join(params.updateLeaseKey, "dist", "cli", "daemon-cli.js")).href);
-        triageRequesterAuthority = await createManagedUpdateRequesterAuthority(params.requester);
-        assertTriageRequester();
-      }
-    }
     if (terminationRequested) return;
-    if (!params.triageTransition) fs.writeSync(1, ${JSON.stringify(HANDOFF_READY_MARKER)});
+    fs.writeSync(1, ${JSON.stringify(HANDOFF_READY_MARKER)});
     const commands = [];
     let input = "";
     let disconnected = false;
@@ -857,7 +841,7 @@ async function collectUpdateFailureTriage() {
     process.stdin.once("end", onDisconnect).once("close", onDisconnect);
     const reply = (line) => fs.writeSync(1, line + "\n");
     let parked = false;
-    while (outcome !== "triage" && isPidAlive(params.parentPid)) {
+    while (isPidAlive(params.parentPid)) {
       if (terminationRequested) { outcome = "restore"; break; }
       if (!ownsManagedUpdateLease())
         throw new Error("managed update lease no longer owns the helper");
@@ -868,7 +852,6 @@ async function collectUpdateFailureTriage() {
         if (!commands.length) break;
       }
       if (deadlineExpired) {
-        if (params.action === "triage") throw new Error("automatic triage admission expired");
         deadlineExpired = false;
         if (!parked) {
           recordUpdateHandoffOutcome("managed-service-handoff-cancelled");
@@ -880,23 +863,17 @@ async function collectUpdateFailureTriage() {
         ) {
           try {
             process.kill(params.parentPid, "SIGKILL");
-          } catch {}
+          } catch { /* Parent exit is still observed before any continuation. */ }
         }
       }
       const command = commands.shift();
-      if (command === "transfer" && params.action === "update" && !parked && !transferred) {
+      if (command === "transfer" && !parked && !transferred) {
         transferred = true;
         appendLog("managed update ownership transferred; validating while the gateway serves");
         reply("transferred");
         outcome = "update";
         break;
-      } else if (command === "commit" && params.action === "triage") {
-        await inspectTriageScope();
-        if (!ownsManagedUpdateLease()) throw new Error("automatic triage admission lost its lease");
-        outcome = "triage";
-        reply("committed");
-        break;
-      } else if (command === "park" && params.action !== "triage") {
+      } else if (command === "park") {
 
         try {
           if (!parked) await parkGatewayService();
@@ -919,8 +896,7 @@ async function collectUpdateFailureTriage() {
         reply(restoring ? "restore-after-exit" : "committed");
       } else if (command === "cancel" || (disconnected && outcome !== "update")) {
         if (!restorationArmed) {
-          if (params.action === "update")
-            recordUpdateHandoffOutcome("managed-service-handoff-cancelled");
+          recordUpdateHandoffOutcome("managed-service-handoff-cancelled");
           if (command) reply("cancelled");
           return;
         }
@@ -939,15 +915,14 @@ async function collectUpdateFailureTriage() {
       ]);
     }
     clearTimeout(parentExitDeadline);
-    if (outcome !== "update" && outcome !== "triage") {
+    if (outcome !== "update") {
       if (restorationArmed) await restoreGatewayService("managed-service-handoff-cancelled");
-      else if (params.action === "update")
-        recordUpdateHandoffOutcome("managed-service-handoff-cancelled");
+      else recordUpdateHandoffOutcome("managed-service-handoff-cancelled");
       return;
     }
     if (restorationArmed) await finishGatewayServicePark();
 
-    if (params.action === "update") await assertUpdateRequester();
+    await assertUpdateRequester();
     if (terminationRequested || updateCancelled) {
       if (restorationArmed) await restoreGatewayService("managed-service-handoff-cancelled");
       else recordUpdateHandoffOutcome("managed-service-handoff-cancelled");
@@ -955,11 +930,7 @@ async function collectUpdateFailureTriage() {
     }
     appendLog("starting managed update command: " + params.commandLabel);
     // Update inputs retain shell-relative paths; recovery keeps the durable helper cwd.
-    const exit = await runOwnedUpdateCommand(params.action, params.commandArgv, undefined, params.action === "update" ? params.invocationCwd : params.cwd);
-    if (params.action === "triage") {
-      if (exit.signal || exit.code !== 0) finalExitCode = exit.code || 1;
-      return;
-    }
+    const exit = await runOwnedUpdateCommand(params.action, params.commandArgv, undefined, params.invocationCwd);
     if (updateCancelled || activationRejected) {
       const reason = updateCancelled ? "managed-service-handoff-cancelled" : activationRejected;
       // No parked acknowledgement authorized a swap. Recovery waits for any
@@ -975,7 +946,7 @@ async function collectUpdateFailureTriage() {
     // Success may change install roots; only recovery requires the original root.
     // Sentinels and diagnostic exports never authorize activation.
     let result = null;
-    try { if (!outputOverflow) result = JSON.parse(updaterOutput); } catch {}
+    try { if (!outputOverflow) result = JSON.parse(updaterOutput); } catch { /* Invalid output leaves no child verdict or recovery authority. */ }
     if (!exit.signal && ownsManagedUpdateLease() && result?.status === "skipped" &&
       result.reason === "update-ledger-busy" && result.root === undefined && result.runId === undefined &&
       ((result.mode === "unknown" && exit.code === 0) || (result.mode === "finalize" && exit.code === 1))) {
@@ -986,7 +957,7 @@ async function collectUpdateFailureTriage() {
       return;
     }
     let resultRoot;
-    try { resultRoot = fs.realpathSync(result?.root); } catch {}
+    try { resultRoot = fs.realpathSync(result?.root); } catch { /* An unresolvable result root cannot authorize recovery. */ }
     if (result?.status === "ok" && resultRoot && resultRoot !== params.updateLeaseKey) {
       terminalRuntimePath = path.join(resultRoot, "dist", "cli", "daemon-cli.js");
     }
@@ -1060,11 +1031,11 @@ async function collectUpdateFailureTriage() {
   } catch (err) {
     appendLog("handoff failed: " + (err && err.stack ? err.stack : String(err)));
     const reason = err?.code === "owner_required" ? "owner_required" : "managed-service-handoff-helper-failed";
-    if (params.action === "update") runOutcome = { status: "failed", reason };
+    runOutcome = { status: "failed", reason };
     if (hasManagedUpdateLease()) {
-      if (params.action !== "triage") bindManagedUpdateLeaseToProcess(process.pid);
+      bindManagedUpdateLeaseToProcess(process.pid);
       if (restorationArmed && !updaterStarted) await restoreGatewayService(reason);
-      else if (params.action === "update") recordUpdateHandoffOutcome(reason);
+      else recordUpdateHandoffOutcome(reason);
     }
     finalExitCode = 1;
   } finally {
@@ -1075,10 +1046,9 @@ async function collectUpdateFailureTriage() {
       foregroundRespawn = false;
       finalExitCode = 1;
     }
-    if (params.action === "update" && !terminationRequested) await collectUpdateFailureTriage();
+    if (!terminationRequested) await collectUpdateFailureTriage();
     releaseManagedUpdateLease();
     cleanupSensitiveFiles();
-    stopTriageScope();
     wakeTermination = undefined;
     if (terminationRequested) finalExitCode = 143;
     appendLog("managed update helper completed code=" + (finalExitCode || 0));
@@ -1091,7 +1061,6 @@ async function collectUpdateFailureTriage() {
 })().catch((err) => {
   appendLog("handoff setup failed: " + (err && err.stack ? err.stack : String(err)));
   cleanupSensitiveFiles();
-  stopTriageScope();
   process.stdin.destroy();
   process.exitCode = terminationRequested ? 143 : 1;
 });
@@ -1108,7 +1077,6 @@ async function spawnManagedServiceUpdateHandoff(
   const serviceEnv = params.env ?? process.env;
   if (params.foregroundOrigin) {
     if (
-      params.action ||
       params.foregroundOrigin.pid !== parentPid ||
       parentPid !== process.pid ||
       params.meta.completionOwner !== "gateway-restart"
@@ -1163,21 +1131,13 @@ async function spawnManagedServiceUpdateHandoff(
     execPath: handoffNodeExecutable,
     argv1: resolveOpenClawCliEntryPath(params.argv1 ?? process.argv[1]),
   };
-  const commandArgv = params.action
-    ? [
-        params.action.nodeRunner,
-        ...resolveRuntimeArgs(params.action.nodeRunner),
-        params.action.entrypoint,
-        "triage",
-      ]
-    : resolveUpdateCliArgv({ ...commandOptions, ...commandRuntime });
+  const commandArgv = resolveUpdateCliArgv({ ...commandOptions, ...commandRuntime });
   if (owner.operatorRestartWarning) {
     commandArgv.push("--no-restart");
   }
-  const commandLabel = params.action
-    ? "openclaw triage (automatic)"
-    : formatManagedServiceUpdateCommand(commandOptions, params.env) +
-      (owner.operatorRestartWarning ? " --no-restart" : "");
+  const commandLabel =
+    formatManagedServiceUpdateCommand(commandOptions, params.env) +
+    (owner.operatorRestartWarning ? " --no-restart" : "");
   const metaFile: ControlPlaneUpdateSentinelMetaFile = {
     version: 1,
     meta: {
@@ -1191,7 +1151,6 @@ async function spawnManagedServiceUpdateHandoff(
   let spawnCommand = handoffNodeExecutable;
   const spawnArgs = [...runtimeArgs, scriptPath, paramsPath];
   let scopeUnit: string | undefined;
-  let systemdRunPath: string | undefined;
   if (
     !params.foregroundOrigin &&
     params.supervisor === "systemd" &&
@@ -1205,21 +1164,11 @@ async function spawnManagedServiceUpdateHandoff(
     if (!systemdRun) {
       throw new Error("systemd-run is required to launch a transient user scope");
     }
-    systemdRunPath = systemdRun;
     const normalized = params.handoffId.trim().replace(/[^A-Za-z0-9_.:@-]+/gu, "-");
     const suffix =
       normalized.replace(/^-+|-+$/gu, "").slice(0, 80) || `${process.pid}-${Date.now()}`;
-    scopeUnit = `openclaw-${params.action ? "triage" : "update"}-${suffix}.scope`;
-    spawnArgs.unshift(
-      "--user",
-      "--scope",
-      "--collect",
-      `--unit=${scopeUnit}`,
-      ...(params.action
-        ? [`--property=PartOf=${resolveSystemdServiceName(serviceEnv)}.service`]
-        : []),
-      spawnCommand,
-    );
+    scopeUnit = `openclaw-update-${suffix}.scope`;
+    spawnArgs.unshift("--user", "--scope", "--collect", `--unit=${scopeUnit}`, spawnCommand);
     spawnCommand = systemdRun;
   }
   const stateDatabasePath = resolveOpenClawStateSqlitePath(serviceEnv);
@@ -1239,10 +1188,8 @@ async function spawnManagedServiceUpdateHandoff(
     serviceManagerEnv: resolveServiceManagerEnv(serviceEnv),
     nodeExecArgv,
     runtimeArgs,
-    action: params.action?.kind ?? "update",
-    failure: params.action?.failure,
+    action: "update",
     scopeUnit,
-    systemdRun: systemdRunPath,
     parentPid,
     parentStartIdentity,
     parentExitTimeoutMs: owner.parentExitTimeoutMs,
@@ -1352,8 +1299,7 @@ async function spawnManagedServiceUpdateHandoff(
       throw new Error("managed update handoff process start identity is unavailable");
     }
     child.once("exit", onExit);
-    // systemd-run execs the helper in its scope. Readiness binds its exact
-    // lease; triage additionally verifies native cancellation before replying.
+    // systemd-run execs the helper in its scope. Readiness binds its exact lease.
     readiness = await waitForHandoffResponse(child, owner.recoveryTimeoutMs);
     if (`${readiness}\n` !== HANDOFF_READY_MARKER && !readiness.startsWith(HANDOFF_BUSY_MARKER)) {
       throw new Error("managed update handoff returned an invalid readiness response");
@@ -1364,11 +1310,7 @@ async function spawnManagedServiceUpdateHandoff(
         helper?.owner !== params.handoffId ||
         helper.executor.pid !== helper.helper.pid ||
         helper.executor.startIdentity !== helper.helper.startIdentity ||
-        helper.action.kind !== (params.action?.kind ?? "update") ||
-        (helper.action.kind === "triage" &&
-          (helper.action.lifetime.kind !== "native" ||
-            helper.action.lifetime.placement.kind !== "attached" ||
-            helper.action.phase !== "reserved")) ||
+        helper.action.kind !== "update" ||
         !isPidAlive(helper.executor.pid) ||
         !identityStore.isProcessIdentityCurrent(
           helper.executor,
@@ -1502,11 +1444,6 @@ export async function startManagedServiceUpdateHandoff(
   }
   params.requesterAuthority?.assertCurrent();
   params.requesterAuthority?.signal?.throwIfAborted();
-  if (params.action && params.supervisor !== "systemd") {
-    throw new Error(
-      "Automatic managed triage requires a Linux user-systemd scope; run openclaw triage manually.",
-    );
-  }
   if (
     !Number.isFinite(params.restartDrainTimeoutMs) ||
     !Number.isFinite(params.restartDelayMs ?? 0)
@@ -1517,11 +1454,6 @@ export async function startManagedServiceUpdateHandoff(
     !params.foregroundOrigin && params.supervisor === "systemd"
       ? await admitSystemdUpdate(params.root, params.env)
       : undefined;
-  if (operatorRestartWarning && params.action) {
-    throw new Error(
-      "Automatic managed triage requires a Linux user-systemd scope; run openclaw triage manually.",
-    );
-  }
   const root = resolveUpdateInstallRoot(params.root);
   const active = activeManagedServiceUpdateHandoffs.get(root);
   let unsettledOwner: string | undefined;
@@ -1662,7 +1594,6 @@ function currentManagedServiceUpdateHandoff(
         lease.executor.startIdentity !== helper.executor.startIdentity)) ||
     JSON.stringify(lease.helper) !== JSON.stringify(helper.helper) ||
     JSON.stringify(lease.action) !== JSON.stringify(helper.action) ||
-    (lease.action.kind === "triage" && lease.action.phase !== "reserved") ||
     !isPidAlive(lease.executor.pid) ||
     !active.leaseStore.isProcessIdentityCurrent(
       lease.executor,
@@ -2021,18 +1952,6 @@ export async function cancelManagedServiceUpdateHandoff(
   }
   active.cancelling = true;
   try {
-    const current = readManagedServiceUpdateHandoffLease(root);
-    if (current?.action.kind === "triage") {
-      if (
-        current.owner !== active.handoffId ||
-        JSON.stringify(current.helper) !== JSON.stringify(active.helper?.helper) ||
-        JSON.stringify({ ...current.action, phase: "reserved" }) !==
-          JSON.stringify(active.helper?.action) ||
-        !active.leaseStore.stopNative(current)
-      ) {
-        return false;
-      }
-    }
     const child = active.launcher;
     if (child && !active.exited && child.exitCode === null && child.signalCode === null) {
       const exited = new Promise<void>((resolve) => {

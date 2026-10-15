@@ -10,7 +10,7 @@ export function finalizeRuntimePromptImages<TImage extends object>(
   // Carry fact ownership without changing provider-visible bytes.
   Object.defineProperty(images, RUNTIME_PROMPT_IMAGE_FACT_INDEXES, {
     configurable: true,
-    value: [...imageFactIndexes],
+    value: imageFactIndexes,
   });
   return { images, imageFactIndexes };
 }
@@ -22,15 +22,8 @@ export function readRuntimePromptImageFactIndexes(
     return undefined;
   }
   const runtimeImages: readonly object[] & {
-    [RUNTIME_PROMPT_IMAGE_FACT_INDEXES]?: unknown;
+    [RUNTIME_PROMPT_IMAGE_FACT_INDEXES]?: RuntimePromptImageFactIndex[];
   } = images;
   const factIndexes = runtimeImages[RUNTIME_PROMPT_IMAGE_FACT_INDEXES];
-  return Array.isArray(factIndexes) &&
-    factIndexes.length === images.length &&
-    factIndexes.every(
-      (entry) =>
-        entry === null || (typeof entry === "number" && Number.isSafeInteger(entry) && entry >= 0),
-    )
-    ? (factIndexes as RuntimePromptImageFactIndex[])
-    : undefined;
+  return factIndexes?.length === images.length ? factIndexes : undefined;
 }

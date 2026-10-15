@@ -56,9 +56,7 @@ export async function withResponseBodyTimeout<T>(params: {
             createResponseBodyTimeoutError(`Response body timed out after ${timeoutMs}ms`),
         );
       }, timeoutMs);
-      if (typeof timeoutId === "object" && "unref" in timeoutId) {
-        timeoutId.unref();
-      }
+      timeoutId.unref();
     }
 
     void Promise.resolve()

@@ -39,7 +39,6 @@ export function createManagedHandoffOriginalAcquisition(deps: {
     root: string,
     owner: string,
     payload: string,
-    source?: ManagedHandoffLease,
     legacyParent?: BorrowedLegacyHandoffParent,
     originalParent?: ManagedHandoffParent,
   ) => LeaseAcquisition;
@@ -127,7 +126,7 @@ export function createManagedHandoffOriginalAcquisition(deps: {
       }
       return { kind: "acquired", lease: result.lease };
     }
-    const result = admit(root, owner, payload, undefined, legacyParent, originalParent);
+    const result = admit(root, owner, payload, legacyParent, originalParent);
     if (result.kind === "acquired" && originalUpdateOwner && options.existingIdentity) {
       const originalDatabaseIdentity = Object.freeze({ ...options.existingIdentity });
       originalUpdateAdmissions.set(result.lease, {

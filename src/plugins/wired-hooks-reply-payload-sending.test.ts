@@ -229,38 +229,51 @@ describe("reply_payload_sending hook runner", () => {
     });
   });
 
-  it("drops trusted local media when plugins change media refs", async () => {
-    const handler = vi
-      .fn()
-      .mockImplementation(async (event: { payload: PluginHookReplyPayload }) => {
-        expect("trustedLocalMedia" in event.payload).toBe(false);
-        return {
-          payload: {
-            ...event.payload,
-            mediaUrl: "file:///tmp/plugin-replaced.wav",
-          },
-        };
+  it.each(["scalar", "array"] as const)(
+    "drops trusted local media when plugins change %s refs",
+    async (kind) => {
+      const handler = vi
+        .fn()
+        .mockImplementation(async (event: { payload: PluginHookReplyPayload }) => {
+          expect("trustedLocalMedia" in event.payload).toBe(false);
+          if (kind === "array") {
+            event.payload.mediaUrls![0] = "file:///tmp/plugin-replaced.wav";
+            return { payload: event.payload };
+          }
+          return {
+            payload: {
+              ...event.payload,
+              mediaUrl: "file:///tmp/plugin-replaced.wav",
+            },
+          };
+        });
+      const { runner } = createHookRunnerWithRegistry([
+        { hookName: "reply_payload_sending", handler },
+      ]);
+
+      const payload: ReplyPayload = {
+        text: "hello",
+        ...(kind === "array"
+          ? { mediaUrls: ["file:///tmp/runtime-owned.wav"] }
+          : { mediaUrl: "file:///tmp/runtime-owned.wav" }),
+        trustedLocalMedia: true,
+      };
+      const result = await runner.runReplyPayloadSending(
+        {
+          ...replyPayloadSendingEvent,
+          payload,
+        },
+        replyPayloadSendingCtx,
+      );
+
+      expect((result?.payload as ReplyPayload | undefined)?.trustedLocalMedia).toBeUndefined();
+      expect(result?.payload).toMatchObject({
+        text: "hello",
+        ...(kind === "array"
+          ? { mediaUrls: ["file:///tmp/plugin-replaced.wav"] }
+          : { mediaUrl: "file:///tmp/plugin-replaced.wav" }),
       });
-    const { runner } = createHookRunnerWithRegistry([
-      { hookName: "reply_payload_sending", handler },
-    ]);
-
-    const result = await runner.runReplyPayloadSending(
-      {
-        ...replyPayloadSendingEvent,
-        payload: {
-          text: "hello",
-          mediaUrl: "file:///tmp/runtime-owned.wav",
-          trustedLocalMedia: true,
-        } as unknown as PluginHookReplyPayload,
-      },
-      replyPayloadSendingCtx,
-    );
-
-    expect((result?.payload as ReplyPayload | undefined)?.trustedLocalMedia).toBeUndefined();
-    expect(result?.payload).toMatchObject({
-      text: "hello",
-      mediaUrl: "file:///tmp/plugin-replaced.wav",
-    });
-  });
+      expect(payload.mediaUrls ?? [payload.mediaUrl]).toEqual(["file:///tmp/runtime-owned.wav"]);
+    },
+  );
 });

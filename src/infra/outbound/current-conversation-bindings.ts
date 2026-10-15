@@ -86,10 +86,7 @@ const resolvedBindings = resolveGlobalSingleton(
           if (fact.kind === "postimage" || fact.kind === "absent") {
             // Receipts replace retained rows; an in-flight read cannot reinstall its older result.
             if (records.has(key)) {
-              records.set(
-                key,
-                Promise.resolve(fact.kind === "postimage" ? structuredClone(fact.value) : null),
-              );
+              records.set(key, Promise.resolve(fact.kind === "postimage" ? fact.value : null));
             }
           } else if (fact.kind === "unknown") {
             records.delete(key);

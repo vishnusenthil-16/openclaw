@@ -1,6 +1,5 @@
 import path from "node:path";
 import { normalizeOptionalLowercaseString } from "@openclaw/normalization-core/string-coerce";
-import { listAgentEntries } from "../agents/agent-scope-config.js";
 import type { SandboxToolPolicy } from "../agents/sandbox/types.js";
 import { resolveChannelAccount } from "../channels/account-resolution.js";
 import { listReadOnlyChannelPluginsForConfigAsync } from "../channels/plugins/read-only.js";
@@ -8,7 +7,6 @@ import type { AnyChannelPlugin as ChannelPlugin } from "../channels/plugins/type
 import { inspectReadOnlyChannelAccount } from "../channels/read-only-account-inspect.js";
 import { resolveNativeSkillsEnabled } from "../config/commands.js";
 import type { OpenClawConfig } from "../config/config.js";
-import type { AgentToolsConfig } from "../config/types.tools.js";
 import type { InstallRecordBase } from "../config/zod-schema.installs.js";
 import { readHookInstalls } from "../hooks/installs.js";
 import { readInstalledPackageVersion } from "../infra/package-update-utils.js";
@@ -18,6 +16,7 @@ import {
   createPluginRegistryIdNormalizer,
   loadPluginRegistrySnapshot,
 } from "../plugins/plugin-registry.js";
+import { listAuditAgentToolContexts } from "./audit-agent-roster.js";
 import type { SecurityAuditFinding } from "./audit.types.js";
 import { listInstalledPluginDirs } from "./installed-plugin-dirs.js";
 
@@ -321,24 +320,8 @@ export async function collectPluginsTrustFindings(params: {
         import("../agents/sandbox-tool-policy.js"),
       ]);
       const enabledPluginSet = new Set(enabledExtensionPluginIds);
-      const contexts: Array<{
-        label: string;
-        agentId?: string;
-        tools?: AgentToolsConfig;
-      }> = [{ label: "default" }];
-      for (const entry of listAgentEntries(params.cfg)) {
-        if (!entry || typeof entry !== "object" || typeof entry.id !== "string") {
-          continue;
-        }
-        contexts.push({
-          label: `agents.entries.${entry.id}`,
-          agentId: entry.id,
-          tools: entry.tools,
-        });
-      }
-
       const permissiveContexts: string[] = [];
-      for (const context of contexts) {
+      for (const context of listAuditAgentToolContexts(params.cfg, "default")) {
         const profile = context.tools?.profile ?? params.cfg.tools?.profile;
         const profilePolicy = resolveToolProfilePolicy(profile);
         const restrictiveProfile = Boolean(profilePolicy);

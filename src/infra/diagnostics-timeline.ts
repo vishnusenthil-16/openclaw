@@ -198,7 +198,7 @@ export function isDiagnosticsTimelineEnabled(options: DiagnosticsTimelineOptions
 }
 
 function normalizeNumber(value: number | undefined): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (value === undefined || !Number.isFinite(value)) {
     return undefined;
   }
   return Math.max(0, Math.round(value * 1000) / 1000);
@@ -213,14 +213,11 @@ function normalizeAttributes(
   const normalized: DiagnosticsTimelineAttributes = {};
   for (const [key, value] of Object.entries(attributes)) {
     if (typeof value === "number") {
-      if (Number.isFinite(value)) {
-        normalized[key] = normalizeNumber(value) ?? 0;
-      }
+      const number = normalizeNumber(value);
+      if (number !== undefined) normalized[key] = number;
       continue;
     }
-    if (typeof value === "string" || typeof value === "boolean" || value === null) {
-      normalized[key] = value;
-    }
+    normalized[key] = value;
   }
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
@@ -234,10 +231,9 @@ function serializeTimelineEvent(event: DiagnosticsTimelineEvent, env: NodeJS.Pro
     name: event.name,
     ...(env.OPENCLAW_DIAGNOSTICS_RUN_ID ? { runId: env.OPENCLAW_DIAGNOSTICS_RUN_ID } : {}),
     ...(env.OPENCLAW_DIAGNOSTICS_ENV ? { envName: env.OPENCLAW_DIAGNOSTICS_ENV } : {}),
-    pid: process.pid,
+    pid: event.pid ?? process.pid,
     ...(event.runId ? { runId: event.runId } : {}),
     ...(event.envName ? { envName: event.envName } : {}),
-    ...(typeof event.pid === "number" ? { pid: event.pid } : {}),
     phase: event.phase || undefined,
     spanId: event.spanId || undefined,
     parentSpanId: event.parentSpanId || undefined,
@@ -251,7 +247,7 @@ function serializeTimelineEvent(event: DiagnosticsTimelineEvent, env: NodeJS.Pro
     activeSpanName: event.activeSpanName || undefined,
     provider: event.provider || undefined,
     operation: event.operation || undefined,
-    ok: typeof event.ok === "boolean" ? event.ok : undefined,
+    ok: event.ok,
     status: normalizeNumber(event.status),
     command: event.command || undefined,
     exitCode: event.exitCode,

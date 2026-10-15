@@ -43,6 +43,10 @@ export function readSqliteTextEncoding(database: DatabaseSync): string {
   if (retained !== undefined) {
     return retained;
   }
+  const schema = getSqliteDatabaseAdmission(database, schemaAdmission);
+  if (schema && (schema.tables.size > 0 || schema.views.size > 0)) {
+    return schema.textEncoding;
+  }
   const encoding = executeWithCachedStatement(database, "PRAGMA encoding", [], (s) => s.get());
   if (typeof encoding?.encoding !== "string") {
     throw new Error("SQLite did not report its text encoding");

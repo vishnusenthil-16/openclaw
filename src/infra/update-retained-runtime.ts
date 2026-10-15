@@ -225,14 +225,10 @@ async function runWithRetainedUpdateRuntime<T>(
           );
           const materializationMs = Math.round(performance.now() - materializationStartedAt);
           assertCurrent();
-          const relocations = prepareRuntimeRelocations(
-            [
-              ...plan.relocations,
-              ...(root === sourceRoot
-                ? []
-                : [{ sourceRoot: root, destinationRoot: candidateRoot }]),
-            ].map((entry) => Object.freeze({ ...entry })),
-          );
+          const relocations = prepareRuntimeRelocations([
+            ...plan.relocations,
+            ...(root === sourceRoot ? [] : [{ sourceRoot: root, destinationRoot: candidateRoot }]),
+          ]);
           const resolve = (url: URL) =>
             pathToFileURL(relocateRuntimePath(fileURLToPath(url), relocations));
           bind(resolve);

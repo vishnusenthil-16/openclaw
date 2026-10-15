@@ -50,7 +50,7 @@ function bindSqliteSourceFenceDatabase({ database, identity }: SqliteSourceFence
     throw new Error("SQLite source fences require admitted durable worker handles");
   }
   assertDatabasePathIdentity(location, identity.physical);
-  bindings.set(database, structuredClone(identity));
+  bindings.set(database, identity);
 }
 
 function sameIdentity(

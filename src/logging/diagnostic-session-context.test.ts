@@ -2,7 +2,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createDeferred } from "../../test/helpers/promise.js";
 import {
   clearRuntimeConfigSnapshot,
   setRuntimeConfigSnapshot,
@@ -14,7 +13,6 @@ import {
 import { memorySessionActorOwners } from "../config/sessions/session-actor-memory-owner.js";
 import { readLatestTranscriptAssistantTextAsync } from "../config/sessions/session-transcript-assistant-read.js";
 import { saveCronStore } from "../cron/store.js";
-import * as cronJobNames from "../cron/store/job-name.js";
 import {
   areDiagnosticsEnabledForProcess,
   setDiagnosticsEnabledForProcess,
@@ -156,31 +154,6 @@ describe("diagnostic session context", () => {
     expect(await captureSessionLog({ sessionKey, cronNameLabel: "stopped" })).toContain(
       `stopped="${"a".repeat(136)}..."`,
     );
-  });
-
-  it("discards queued enrichment when its session is replaced", async () => {
-    const scope = { agentId: "main", sessionKey: "agent:main:cron:pending-job:run:previous" };
-    await seedSessionTranscript({
-      ...scope,
-      sessionId: "previous",
-      messages: [{ role: "assistant", content: "previous private reply" }],
-    });
-    const ready = createDeferred();
-    const resume = createDeferred();
-    vi.spyOn(cronJobNames, "prepareCronJobNameResolver").mockImplementation(async () => {
-      ready.resolve();
-      await resume.promise;
-      return () => "previous job name";
-    });
-    const message = captureSessionLog({ ...scope, activeSessionId: "previous" });
-    try {
-      await ready.promise;
-      await replaceSessionEntry(scope, { sessionId: "replacement", updatedAt: 2 });
-    } finally {
-      resume.resolve();
-      await message;
-    }
-    expect(await message).toBe("");
   });
 
   it.each(["dashboard", "subagent", "internal-session-effects"])(

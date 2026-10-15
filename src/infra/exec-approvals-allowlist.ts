@@ -368,7 +368,7 @@ function resolvePowerShellFileScriptArgv(params: {
   cwd?: string;
 }): string[] | null {
   const argv = resolveSegmentSourceArgv(params.segment);
-  if (!Array.isArray(argv) || argv.length < 3) {
+  if (argv.length < 3) {
     return null;
   }
   const wrapperName = normalizeExecutableToken(argv[0] ?? "");
@@ -396,7 +396,7 @@ function resolvePowerShellFileScriptArgv(params: {
 
 function resolveSegmentSourceArgv(segment: ExecCommandSegment): string[] {
   const sourceArgv = segment.sourceArgv;
-  if (!Array.isArray(sourceArgv) || sourceArgv.length === 0) {
+  if (!sourceArgv?.length) {
     return segment.argv;
   }
 
@@ -814,7 +814,7 @@ function resolveShellWrapperScriptCandidatePath(params: {
   }
 
   const argv = params.segment.argv;
-  if (!Array.isArray(argv) || argv.length < 2) {
+  if (argv.length < 2) {
     return undefined;
   }
 
@@ -919,7 +919,7 @@ function resolveShellWrapperPositionalArgvCandidate(params: {
   }
 
   const argv = params.segment.argv;
-  if (!Array.isArray(argv) || argv.length < 4) {
+  if (argv.length < 4) {
     return undefined;
   }
 

@@ -34,7 +34,7 @@ export function applyExecApprovalsUpdate(
   }
   const originalDefaults = resolveExecApprovalsFromFileInternal({ file: update.original }).defaults;
   const currentDefaults = resolveExecApprovalsFromFileInternal({ file }).defaults;
-  const next = structuredClone(file);
+  const next = { ...file };
   let changed = false;
   // A whole-file rollback lost its CAS. Revert only unchanged fields without loosening policy.
   for (const field of ["security", "ask", "askFallback"] as const) {

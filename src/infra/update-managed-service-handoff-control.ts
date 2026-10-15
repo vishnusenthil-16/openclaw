@@ -33,9 +33,6 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
   let outputOverflow = false;
   let outputFd;
   let timeout;
-  let triageAdmitted = false;
-  let leaseWatch;
-  let admissionDeadline;
   let activation;
   let activationAcknowledged = false;
   let outputPrefix = Buffer.alloc(0);
@@ -56,9 +53,7 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
       {
         cwd,
         env:
-          params.action === "triage"
-            ? { ...env, NODE_DISABLE_COMPILE_CACHE: "1" }
-            : phase === "update" ? { ...env, OPENCLAW_UPDATE_RUN_HANDOFF: "1" } : env,
+          phase === "update" ? { ...env, OPENCLAW_UPDATE_RUN_HANDOFF: "1" } : env,
         detached: true,
         stdio: ["pipe", "pipe", outputFd, "ipc", "pipe"],
       },
@@ -94,7 +89,7 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
         }
         outputPrefix = Buffer.alloc(0);
       }
-      try { fs.writeSync(outputFd, chunk); } catch {}
+      try { fs.writeSync(outputFd, chunk); } catch { /* Log output is diagnostic; the child verdict and close join stay authoritative. */ }
       updaterBytes += chunk.length;
       if (updaterBytes > 4 * 1024 * 1024) {
         outputOverflow = true;
@@ -105,13 +100,6 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
     const exited = new Promise((resolve) => {
       child.once("error", (error) => { childError = error; });
       child.once("close", (code, signal) => resolve({ code, signal, error: childError }));
-    });
-    // Descendants can retain stdio and IPC after their executor exits.
-    child.once("exit", (code, signal) => {
-      if (params.action === "triage") {
-        appendLog("automatic triage executor exited code=" + code + " signal=" + signal + "; retiring native scope");
-        stopTriageScope();
-      }
     });
     child.stdin.on("error", () => {});
     const gate = child.stdio[4];
@@ -125,18 +113,7 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
         throw new Error("managed update runner lease binding failed");
       }
       runnerIdentity = managedUpdateLease.payload;
-      assertTriageRequester();
       if (phase === "update") await assertUpdateRequester();
-      child.once("disconnect", () => {
-        if (params.action === "triage" && !triageClosing) {
-          const completion = managedUpdateLease && leaseStore.readGeneration(managedUpdateLease);
-          if (completion?.action.phase !== "closed") {
-            appendLog("automatic triage executor disconnected without cleanup; retiring native scope");
-            stopTriageScope();
-          }
-        }
-
-      });
       child.on("message", async (message) => {
         try {
           if (
@@ -170,67 +147,12 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
             }
             return;
           }
-          if (
-            params.action === "triage" &&
-            message.type === "triage-ready" &&
-            !triageAdmitted &&
-            Object.keys(message).length === 2
-          ) {
-            // Claim the one admission before awaiting native inspection; duplicate
-            // messages cannot both pass the same current runner lease.
-            triageAdmitted = true;
-            const scope = await inspectTriageScope();
-            if (
-              !hasManagedUpdateLease() ||
-              managedUpdateLease.payload !== runnerIdentity ||
-              !procCgroupMembershipMatches(
-                fs.readFileSync("/proc/" + child.pid + "/cgroup", "utf8"),
-                scope.ControlGroup,
-              )
-            ) {
-              throw new Error("automatic triage executor lost its native placement");
-            }
-            if (!child.connected || child.exitCode !== null || child.signalCode !== null) throw new Error("automatic triage child disconnected");
-            assertTriageRequester();
-            const admitted = leaseStore.activate(managedUpdateLease);
-            if (!admitted) throw new Error("automatic triage activation lost its claim");
-            managedUpdateLease = admitted;
-            runnerIdentity = admitted.payload;
-            clearTimeout(admissionDeadline);
-            child.send(
-              {
-                type: "triage",
-                version: 2,
-                failure: params.failure,
-                installRoot: params.updateLeaseKey,
-                owner: managedUpdateLease.owner,
-                requester: params.requester,
-              },
-              () => {},
-            );
-          } else throw new Error("invalid or repeated managed handoff continuation");
+          throw new Error("invalid or repeated managed handoff continuation");
         } catch (error) {
           appendLog("automatic triage admission failed: " + String(error));
-          if (params.action === "triage") stopTriageScope();
-          else if (child.connected) child.send({ type: "triage-refused", version: 2 }, () => {});
+          if (child.connected) child.send({ type: "triage-refused", version: 2 }, () => {});
         }
       });
-      if (params.action === "triage") {
-        admissionDeadline = setTimeout(() => {
-          appendLog("The installed update did not start diagnostics. Run openclaw triage manually.");
-          stopTriageScope();
-        }, 30000);
-        leaseWatch = setInterval(() => {
-          try {
-            assertTriageRequester();
-            if (!hasManagedUpdateLease()) throw new Error("lease lost or replaced");
-          } catch (error) {
-            clearInterval(leaseWatch);
-            appendLog("automatic triage cancelled: " + String(error));
-            stopTriageScope();
-          }
-        }, 250);
-      }
       // Sending the gate can start mutation even if its write callback fails.
       // From here, only the updater can authorize recovery of this installation.
       if (phase === "update") updaterStarted = true;
@@ -263,9 +185,7 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
     appendLog("managed update " + phase + " command pid=" + (child.pid || "unknown"));
     const exit = await exited;
     await activation;
-    clearInterval(leaseWatch);
-    clearTimeout(admissionDeadline);
-    if (params.action !== "triage" && !bindManagedUpdateLeaseToProcess(process.pid, runnerIdentity)) {
+    if (!bindManagedUpdateLeaseToProcess(process.pid, runnerIdentity)) {
       throw new Error("managed update command lease binding was lost");
     }
     if (exit.error) throw exit.error;
@@ -275,18 +195,10 @@ async function runOwnedUpdateCommand(phase, commandArgv, timeoutMs, cwd = params
         " signal=" +
         (exit && exit.signal ? exit.signal : "null"),
     );
-    if (params.action === "triage" && !triageAdmitted) {
-      appendLog(
-        "The installed update does not support automatic diagnostics. Run openclaw triage manually.",
-      );
-      finalExitCode = 1;
-    }
     return { ...exit, updaterOutput: Buffer.concat(updaterChunks).toString(), outputOverflow };
   } finally {
     activeCommand = undefined;
     clearTimeout(timeout);
-    clearInterval(leaseWatch);
-    clearTimeout(admissionDeadline);
     if (outputFd !== undefined) {
       try {
         fs.closeSync(outputFd);

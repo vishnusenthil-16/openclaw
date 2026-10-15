@@ -101,10 +101,9 @@ async function tryHandleWithPluginAction(params: {
     }),
     sessionKey: params.ctx.input.sessionKey,
     messageProvider: params.ctx.input.sessionKey ? undefined : params.ctx.channel,
-    accountId:
-      (params.ctx.input.sessionKey
-        ? (params.ctx.input.requesterAccountId ?? params.ctx.accountId)
-        : params.ctx.accountId) ?? undefined,
+    accountId: params.ctx.input.sessionKey
+      ? (params.ctx.input.requesterAccountId ?? params.ctx.accountId)
+      : params.ctx.accountId,
     requesterSenderId: params.ctx.input.requesterSenderId ?? undefined,
     requesterSenderName: params.ctx.input.requesterSenderName ?? undefined,
     requesterSenderUsername: params.ctx.input.requesterSenderUsername ?? undefined,
@@ -294,7 +293,7 @@ export async function executeSendAction(params: SendActionParams): Promise<{
     gifPlayback: params.gifPlayback,
     forceDocument: params.forceDocument,
     dryRun: params.ctx.dryRun,
-    bestEffort: params.bestEffort ?? undefined,
+    bestEffort: params.bestEffort,
     queuePolicy,
     deps: params.ctx.input.deps,
     gateway: params.ctx.gateway,
@@ -377,7 +376,7 @@ export async function executePollAction(params: {
     cfg: params.ctx.cfg,
     channel: params.ctx.channel,
     accountId: params.ctx.accountId ?? undefined,
-    silent: params.ctx.silent ?? undefined,
+    silent: params.ctx.silent,
     dryRun: params.ctx.dryRun,
     gateway: params.ctx.gateway,
     idempotencyKey: params.ctx.idempotencyKey,

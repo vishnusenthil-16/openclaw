@@ -22,11 +22,11 @@ export function resolveInstallationTarget(
   env: NodeJS.ProcessEnv = process.env,
 ): InstallationTarget {
   const stateDir = resolveStateDir(env);
-  return Object.freeze({
+  return {
     stateDir,
     configPath: resolveConfigPath(env, stateDir),
     defaultWorkspaceDir: resolveDefaultAgentWorkspaceDir(env),
-  });
+  };
 }
 
 export function getInstallationTarget(): InstallationTarget | undefined {
@@ -44,5 +44,5 @@ export function installationTargetEnv(target: InstallationTarget | undefined) {
 }
 
 export function withInstallationTarget<T>(target: InstallationTarget | undefined, run: () => T): T {
-  return installationTargetContext.run(target ? Object.freeze({ ...target }) : undefined, run);
+  return installationTargetContext.run(target, run);
 }

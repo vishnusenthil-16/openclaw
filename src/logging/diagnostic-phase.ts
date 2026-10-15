@@ -21,9 +21,6 @@ let activePhaseStack: ActiveDiagnosticPhase[] = [];
 let recentPhases: DiagnosticPhaseSnapshot[] = [];
 
 function roundMetric(value: number, digits = 1): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
 }
@@ -53,7 +50,7 @@ export function getRecentDiagnosticPhases(
       : recentPhases.filter(
           (phase) => phase.endedAt !== undefined && phase.endedAt >= completedAfter,
         );
-  return eligiblePhases.slice(-Math.floor(limit)).map((phase) => Object.assign({}, phase));
+  return eligiblePhases.slice(-Math.floor(limit));
 }
 
 function recordDiagnosticPhase(snapshot: DiagnosticPhaseSnapshot): void {

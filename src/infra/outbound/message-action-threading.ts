@@ -64,7 +64,7 @@ export function resolveAndApplyOutboundThreadId(
       actionParams.replyTo = canonicalReplyToId;
     }
   }
-  return resolvedThreadId ?? undefined;
+  return resolvedThreadId;
 }
 
 export function resolveAndApplyOutboundReplyToId(

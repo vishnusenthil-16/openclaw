@@ -178,9 +178,7 @@ async function generateSelfSignedCert(params: {
 function resolveGatewayTlsCertPath(certPath: string | undefined): string {
   // Blank paths use the default; resolveUserPath owns trimming and home expansion.
   return resolveUserPath(
-    typeof certPath === "string" && certPath.trim()
-      ? certPath
-      : path.join(CONFIG_DIR, "gateway", "tls", "gateway-cert.pem"),
+    certPath?.trim() ? certPath : path.join(CONFIG_DIR, "gateway", "tls", "gateway-cert.pem"),
   );
 }
 
@@ -219,9 +217,7 @@ export async function loadGatewayTlsServerRuntime(
   // that contain leading/trailing spaces.
   const certPath = resolveGatewayTlsCertPath(cfg.certPath);
   const keyPath = resolveUserPath(
-    typeof cfg.keyPath === "string" && cfg.keyPath.trim()
-      ? cfg.keyPath
-      : path.join(baseDir, "gateway-key.pem"),
+    cfg.keyPath?.trim() ? cfg.keyPath : path.join(baseDir, "gateway-key.pem"),
   );
   const caPath = cfg.caPath ? resolveUserPath(cfg.caPath) : undefined;
   const runtime = { enabled: false, required: true, certPath, keyPath };

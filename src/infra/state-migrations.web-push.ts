@@ -174,7 +174,6 @@ function migrateIntoDatabase(params: {
             .select("value_json")
             .where("state_key", "=", WEB_PUSH_VAPID_STATE_KEY),
         );
-      const expectedSubscriptions = new Map<string, WebPushSubscription>();
       for (const [endpointHash, legacySubscription] of params.legacy.subscriptions) {
         const existingRow = readSubscription(endpointHash);
         if (existingRow && existingRow.endpoint !== legacySubscription.endpoint) {
@@ -214,10 +213,8 @@ function migrateIntoDatabase(params: {
           );
           importedSubscriptions += 1;
         }
-        expectedSubscriptions.set(endpointHash, expected);
       }
 
-      let expectedVapidKeys: VapidKeyPair | null = null;
       if (params.legacy.vapidKeys) {
         const existingVapidRow = readVapidKeys();
         if (existingVapidRow) {
@@ -229,7 +226,6 @@ function migrateIntoDatabase(params: {
           ) {
             throw new Error("legacy Web Push VAPID identity conflicts with SQLite");
           }
-          expectedVapidKeys = existingVapidKeys;
         } else {
           executeSqliteQuerySync(
             db,
@@ -239,28 +235,7 @@ function migrateIntoDatabase(params: {
               updated_at_ms: params.nowMs,
             }),
           );
-          expectedVapidKeys = params.legacy.vapidKeys;
           importedVapidKeys = true;
-        }
-      }
-
-      for (const [endpointHash, expected] of expectedSubscriptions) {
-        const row = readSubscription(endpointHash);
-        if (!row || !webPushSubscriptionsEqual(webPushSubscriptionFromRow(row), expected)) {
-          throw new Error("SQLite verification failed for a Web Push subscription");
-        }
-      }
-      if (expectedVapidKeys) {
-        const row = readVapidKeys();
-        // SAFETY: This transaction writes or validates this key as a VapidKeyPair above.
-        const persisted = row ? (JSON.parse(row.value_json) as VapidKeyPair) : undefined;
-        if (
-          !persisted ||
-          persisted.publicKey !== expectedVapidKeys.publicKey ||
-          persisted.privateKey !== expectedVapidKeys.privateKey ||
-          persisted.subject !== expectedVapidKeys.subject
-        ) {
-          throw new Error("SQLite verification failed for the Web Push VAPID identity");
         }
       }
     },

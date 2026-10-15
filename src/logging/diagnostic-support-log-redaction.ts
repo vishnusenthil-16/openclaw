@@ -22,6 +22,11 @@ const LOGTAPE_META_STRING_FIELDS = new Map([
   ["name", "logger"],
 ]);
 
+type SanitizedLogRecord = Record<string, unknown> & {
+  omittedLogMessageBytes?: number;
+  omittedLogMessageCount?: number;
+};
+
 /** Parses and sanitizes one log line into safe support-bundle metadata. */
 export function sanitizeSupportLogRecord(
   line: string,
@@ -45,7 +50,7 @@ export function sanitizeSupportLogRecord(
     };
   }
 
-  const sanitized: Record<string, unknown> = Object.create(null);
+  const sanitized: SanitizedLogRecord = Object.create(null);
   addLogObjectFields(sanitized, source, redaction);
   addLogTapeMetaFields(sanitized, source, redaction);
   addLogTapeArgFields(sanitized, source, redaction);
@@ -59,7 +64,7 @@ export function sanitizeSupportLogRecord(
 }
 
 function addLogTapeMetaFields(
-  sanitized: Record<string, unknown>,
+  sanitized: SanitizedLogRecord,
   source: Record<string, unknown>,
   redaction: SupportRedactionContext,
 ): void {
@@ -86,7 +91,7 @@ function addLogTapeMetaFields(
 }
 
 function addLogTapeArgFields(
-  sanitized: Record<string, unknown>,
+  sanitized: SanitizedLogRecord,
   source: Record<string, unknown>,
   redaction: SupportRedactionContext,
 ): void {
@@ -110,7 +115,7 @@ function addLogTapeArgFields(
 }
 
 function addLogTapeMessageField(
-  sanitized: Record<string, unknown>,
+  sanitized: SanitizedLogRecord,
   value: string,
   redaction: SupportRedactionContext,
 ): void {
@@ -122,19 +127,15 @@ function addLogTapeMessageField(
   addOmittedLogMessageMetadata(sanitized, value);
 }
 
-function addOmittedLogMessageMetadata(sanitized: Record<string, unknown>, value: string): void {
+function addOmittedLogMessageMetadata(sanitized: SanitizedLogRecord, value: string): void {
   sanitized.omitted = "log-message";
   sanitized.omittedLogMessageBytes =
-    numericLogMetadata(sanitized.omittedLogMessageBytes) + Buffer.byteLength(value, "utf8");
-  sanitized.omittedLogMessageCount = numericLogMetadata(sanitized.omittedLogMessageCount) + 1;
-}
-
-function numericLogMetadata(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+    (sanitized.omittedLogMessageBytes ?? 0) + Buffer.byteLength(value, "utf8");
+  sanitized.omittedLogMessageCount = (sanitized.omittedLogMessageCount ?? 0) + 1;
 }
 
 function addLogObjectFields(
-  sanitized: Record<string, unknown>,
+  sanitized: SanitizedLogRecord,
   source: Record<string, unknown>,
   redaction: SupportRedactionContext,
 ): void {

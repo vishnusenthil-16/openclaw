@@ -703,10 +703,9 @@ async function* marketplaceResponseChunks(
       yield value;
     }
   } finally {
+    // Cancellation is best effort when the download has already failed.
     await reader.cancel().catch(() => undefined);
-    try {
-      reader.releaseLock();
-    } catch {}
+    reader.releaseLock();
   }
 }
 

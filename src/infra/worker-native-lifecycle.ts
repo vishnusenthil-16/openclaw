@@ -338,10 +338,10 @@ export function captureRetainedNativeWorkerSource(options?: {
     },
     captureResource(moduleUrl, workerDataKey, input, connect) {
       const inContext = AsyncLocalStorage.snapshot();
-      return Object.freeze({
+      return {
         moduleUrl: String(captured.runtimeGeneration?.resolve(moduleUrl) ?? moduleUrl),
         workerDataKey,
-        input: input === undefined ? undefined : structuredClone(input),
+        input,
         connect: connect
           ? () =>
               inContext(() => {
@@ -357,7 +357,7 @@ export function captureRetainedNativeWorkerSource(options?: {
                 };
               })
           : undefined,
-      });
+      };
     },
     retain(owner, closeOwner) {
       owners.set(owner, closeOwner);

@@ -169,7 +169,7 @@ export async function applyMessageSendingHook(params: {
       },
       {
         channelId: params.channel,
-        accountId: params.accountId ?? undefined,
+        accountId: params.accountId,
         conversationId: params.to,
         ...(params.sessionKey ? { sessionKey: params.sessionKey } : {}),
         ...(group ? { sessionKey: group.ctx.SessionKey, runId: group.runState.runId } : {}),

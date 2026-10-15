@@ -512,7 +512,7 @@ export async function createBackupSqliteSnapshotPlan(params: {
       // Keep directory links as links; publish the database at its real archive path.
       database.sourcePath = await fs.realpath(database.sourcePath);
     }
-    coreDatabases.push(Object.freeze({ ...database, identity }));
+    coreDatabases.push({ ...database, identity });
   }
   const inventory = sealBackupResourceInventory(
     {

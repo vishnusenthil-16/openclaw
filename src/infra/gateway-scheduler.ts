@@ -88,7 +88,6 @@ export class GatewayScheduler {
   private readonly pending = new Set<Promise<void>>();
   private cancelTimer?: () => void;
   private dispatching = false;
-  private timerGeneration = 0;
   private readonly controller = new AbortController();
 
   constructor(
@@ -238,7 +237,6 @@ export class GatewayScheduler {
   beginClose(): void {
     this.controller.abort();
     materializeErrorStack(this.controller.signal.reason);
-    this.timerGeneration += 1;
     this.cancelTimer?.();
     this.cancelTimer = undefined;
     for (const job of this.jobs.values()) {
@@ -267,17 +265,13 @@ export class GatewayScheduler {
     }
     this.cancelTimer?.();
     this.cancelTimer = undefined;
-    const generation = ++this.timerGeneration;
     const next = this.nextWakeAtMs;
     if (next !== null) {
       const nowMs = this.now();
       // Node truncates fractional delays and clamps overflow to 1ms; never arm before due.
       const delayMs = Math.min(2_147_483_647, Math.max(0, Math.ceil(next - nowMs)));
       this.cancelTimer = runInDetachedAsyncContext(() =>
-        this.clock.arm(
-          () => (generation === this.timerGeneration ? this.wake(nowMs + delayMs) : undefined),
-          delayMs,
-        ),
+        this.clock.arm(() => this.wake(nowMs + delayMs), delayMs),
       );
     }
   }

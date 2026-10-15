@@ -1,5 +1,4 @@
 import { normalizeProviderId } from "@openclaw/model-catalog-core/provider-id";
-import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalLowercaseString } from "@openclaw/normalization-core/string-coerce";
 import { isBlockedObjectKey } from "../infra/prototype-keys.js";
 import type { PluginMetadataRegistryView } from "./plugin-metadata-snapshot.types.js";
@@ -33,18 +32,12 @@ export function findCapabilityProviderEntry<
   }
   return (
     entries.find(
-      ({ provider }) =>
-        isRecord(provider) && normalizeCapabilityProviderId(provider.id) === normalizedProviderId,
+      ({ provider }) => normalizeCapabilityProviderId(provider.id) === normalizedProviderId,
     ) ??
-    entries.find(
-      ({ provider }) =>
-        isRecord(provider) &&
-        Array.isArray(provider.aliases) &&
-        provider.aliases.some(
-          (alias) =>
-            typeof alias === "string" &&
-            normalizeCapabilityProviderId(alias) === normalizedProviderId,
-        ),
+    entries.find(({ provider }) =>
+      provider.aliases?.some(
+        (alias) => normalizeCapabilityProviderId(alias) === normalizedProviderId,
+      ),
     )
   );
 }

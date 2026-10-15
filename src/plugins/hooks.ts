@@ -426,13 +426,13 @@ export function createHookRunner(
   });
 
   const mergeBeforeAgentFinalize = (
-    acc: PluginHookBeforeAgentFinalizeResult | undefined,
+    acc: BeforeAgentFinalizeResultWithRetryCandidates | undefined,
     next: PluginHookBeforeAgentFinalizeResult,
-  ): PluginHookBeforeAgentFinalizeResult => {
+  ): BeforeAgentFinalizeResultWithRetryCandidates => {
     const normalizeRetry = (
       retry: PluginHookBeforeAgentFinalizeResult["retry"] | undefined,
     ): BeforeAgentFinalizeRetry | undefined => {
-      const instruction = typeof retry?.instruction === "string" ? retry.instruction.trim() : "";
+      const instruction = retry?.instruction.trim();
       if (!instruction) {
         return undefined;
       }
@@ -441,22 +441,6 @@ export function createHookRunner(
         instruction,
       };
     };
-    const readRetryCandidates = (
-      result: PluginHookBeforeAgentFinalizeResult | undefined,
-    ): BeforeAgentFinalizeRetry[] => {
-      if (!result || result.action !== "revise") {
-        return [];
-      }
-      const candidateList = (result as BeforeAgentFinalizeResultWithRetryCandidates)
-        .retryCandidates;
-      if (Array.isArray(candidateList) && candidateList.length > 0) {
-        return candidateList
-          .map(normalizeRetry)
-          .filter((retry): retry is BeforeAgentFinalizeRetry => retry !== undefined);
-      }
-      const retry = normalizeRetry(result.retry);
-      return retry ? [retry] : [];
-    };
     if (acc?.action === "finalize") {
       return acc;
     }
@@ -464,7 +448,9 @@ export function createHookRunner(
       return { action: "finalize", reason: next.reason };
     }
     if (acc?.action === "revise" && next.action === "revise") {
-      const retryCandidates = [...readRetryCandidates(acc), ...readRetryCandidates(next)];
+      const retryCandidates = [...(acc.retryCandidates ?? (acc.retry ? [acc.retry] : []))];
+      const nextRetry = normalizeRetry(next.retry);
+      if (nextRetry) retryCandidates.push(nextRetry);
       const retry = retryCandidates[0];
       const result: PluginHookBeforeAgentFinalizeResult = {
         action: "revise",

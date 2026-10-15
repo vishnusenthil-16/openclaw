@@ -87,7 +87,7 @@ export function resolveProviderModelCatalogId(params: {
     provider,
     modelId: params.modelId,
   });
-  return typeof normalized === "string" && normalized.trim() ? normalized.trim() : null;
+  return normalized?.trim() || null;
 }
 
 function normalizeModelId(
@@ -100,7 +100,7 @@ function normalizeModelId(
     return undefined;
   }
   const canonical = surface?.normalizeModelCatalogId?.({ provider, modelId: trimmed });
-  return typeof canonical === "string" && canonical.trim() ? canonical.trim() : trimmed;
+  return canonical?.trim() || trimmed;
 }
 
 function projectConfiguredModelRoute(model: ModelDefinitionConfig): ProviderModelRouteSource {

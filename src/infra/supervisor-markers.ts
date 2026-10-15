@@ -32,7 +32,7 @@ interface DetectRespawnSupervisorOptions {
 function hasAnyHint(env: NodeJS.ProcessEnv, keys: readonly string[]): boolean {
   return keys.some((key) => {
     const value = env[key];
-    return typeof value === "string" && value.trim().length > 0;
+    return Boolean(value?.trim());
   });
 }
 

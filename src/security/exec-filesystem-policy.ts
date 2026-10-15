@@ -1,9 +1,9 @@
-import { listAgentEntries } from "../agents/agent-scope-config.js";
 import { resolveConfiguredToolPolicies } from "../agents/agent-tools.policy.js";
 import { resolveSandboxConfigForAgent } from "../agents/sandbox/config.js";
 import { isToolAllowedByPolicies } from "../agents/tool-policy-match.js";
 import type { OpenClawConfig } from "../config/config.js";
-import type { AgentToolsConfig, ExecToolConfig } from "../config/types.tools.js";
+import type { ExecToolConfig } from "../config/types.tools.js";
+import { listAuditAgentToolContexts } from "./audit-agent-roster.js";
 
 const MUTATING_FS_TOOLS = ["write", "edit", "apply_patch"] as const;
 const RUNTIME_TOOLS = ["exec", "process"] as const;
@@ -24,24 +24,7 @@ export function collectExecFilesystemPolicyDriftHits(
 ): ExecFilesystemPolicyDriftHit[] {
   const hits: ExecFilesystemPolicyDriftHit[] = [];
   const globalExec = cfg.tools?.exec;
-  const contexts: Array<{
-    scopeLabel: string;
-    agentId?: string;
-    tools?: AgentToolsConfig;
-  }> = [{ scopeLabel: "tools" }];
-
-  for (const agent of listAgentEntries(cfg)) {
-    if (!agent || typeof agent !== "object" || typeof agent.id !== "string") {
-      continue;
-    }
-    contexts.push({
-      scopeLabel: `agents.entries.${agent.id}.tools`,
-      agentId: agent.id,
-      tools: agent.tools,
-    });
-  }
-
-  for (const context of contexts) {
+  for (const context of listAuditAgentToolContexts(cfg, "tools", ".tools")) {
     const sandbox = resolveSandboxConfigForAgent(cfg, context.agentId);
     const execHost = context.tools?.exec?.host ?? globalExec?.host ?? "auto";
     // Sandboxed all-mode with non-rw workspace access constrains local exec
@@ -76,7 +59,7 @@ export function collectExecFilesystemPolicyDriftHits(
     }
 
     hits.push({
-      scopeLabel: context.scopeLabel,
+      scopeLabel: context.label,
       runtimeTools,
       disabledFilesystemTools,
       sandboxMode: sandbox.mode,

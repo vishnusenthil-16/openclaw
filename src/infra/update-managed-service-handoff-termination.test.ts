@@ -1,9 +1,13 @@
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { awaitGateBeforeSettlement, createDeferred } from "../../test/helpers/promise.js";
+import { OPENCLAW_STATE_SCHEMA_SQL } from "../state/openclaw-state-schema.js";
+import { extractSqliteTableSchema } from "./sqlite-schema-sql.js";
+import { runSqliteImmediateTransactionSync } from "./sqlite-transaction.js";
 import { HANDOFF_OWNED_COMMAND_SCRIPT } from "./update-managed-service-handoff-control.js";
 import { MANAGED_HANDOFF_LEASE_SOURCE } from "./update-managed-service-handoff-lease-source.js";
 import { MANAGED_HANDOFF_NATIVE_SCOPE_SOURCE } from "./update-managed-service-handoff-native-scope-source.js";
@@ -38,10 +42,6 @@ const finalizerSource = sourceBetween(
   "${JSON.stringify(SYSTEM_SERVICE_UPDATE_SETTLED_MARKER)}",
   JSON.stringify("system-update-settled\n"),
 );
-const commandResultSource = sourceBetween(
-  "    const exit = await runOwnedUpdateCommand(params.action,",
-  "    if (updateCancelled || activationRejected)",
-);
 const diagnosticSource = sourceBetween(
   "async function collectUpdateFailureTriage()",
   "\n(async () => {",
@@ -50,12 +50,12 @@ const diagnosticSource = sourceBetween(
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-function createBoundary(action: "update" | "triage" = "update") {
+function createBoundary() {
+  const action = "update";
   const terminalStarted = createDeferred();
   const terminalFinished = createDeferred();
   const diagnosticStarted = createDeferred();
   const diagnosticFinished = createDeferred();
-  const commandAdmitted = createDeferred();
   const order: string[] = [];
   const stdin = Object.assign(new EventEmitter(), { destroy: vi.fn() });
   const processFixture = Object.assign(new EventEmitter(), {
@@ -65,7 +65,6 @@ function createBoundary(action: "update" | "triage" = "update") {
     env: {},
     stdin,
     exitCode: undefined as number | undefined,
-    execve: vi.fn(),
   });
   const params = {
     action,
@@ -101,13 +100,10 @@ function createBoundary(action: "update" | "triage" = "update") {
       authority.current ? { ...currentLease, executor: { pid } } : false,
     ),
     isProcessIdentityCurrent: vi.fn(() => authority.current),
-    retarget: vi.fn(),
     release: vi.fn(() => {
       order.push("release");
       return authority.current;
     }),
-    settle: vi.fn(),
-    stopNative: vi.fn(),
   };
   const logs: string[] = [];
   const fs = {
@@ -139,10 +135,6 @@ function createBoundary(action: "update" | "triage" = "update") {
     const gate = Object.assign(new EventEmitter(), {
       end: (_data: string, callback: () => void) => {
         callback();
-        if (action === "triage") {
-          commandAdmitted.resolve();
-          return;
-        }
         const phase = diagnostic ? "diagnostic" : "terminal";
         order.push(phase + ":start");
         (diagnostic ? diagnosticStarted : terminalStarted).resolve();
@@ -169,7 +161,7 @@ function createBoundary(action: "update" | "triage" = "update") {
     void Promise.resolve().then(() => child.emit("spawn"));
     return child;
   });
-  const boundary: { settle: () => Promise<void>; command: () => Promise<void> } = runInNewContext(
+  const boundary: { settle: () => Promise<void> } = runInNewContext(
     `
     let restorationArmed = true;
     let foregroundParked = false, foregroundClosed = false, foregroundRespawn = false;
@@ -182,18 +174,15 @@ function createBoundary(action: "update" | "triage" = "update") {
     ${diagnosticSource}
     ${sourceBetween("function cleanupSensitiveFiles()", "function assertStateDatabaseWriteAllowed")}
     managedUpdateLease = initialLease;
-    if (params.action === "update") {
-      runLedger = {};
-      runOutcome = { status: "failed", reason: "candidate-validation-failed" };
-      triageFailure = { reason: "candidate-validation-failed" };
-      finalExitCode = 1;
-    }
+    runLedger = {};
+    runOutcome = { status: "failed", reason: "candidate-validation-failed" };
+    triageFailure = { reason: "candidate-validation-failed" };
+    finalExitCode = 1;
     async function complete(operation) {
       try { await operation();
       ${finalizerSource}
     }
-    ({ settle: () => complete(async () => {}),
-      command: () => complete(async () => { ${commandResultSource} }), });
+    ({ settle: () => complete(async () => {}) });
     `,
     {
       params,
@@ -219,7 +208,6 @@ function createBoundary(action: "update" | "triage" = "update") {
     terminalFinished,
     diagnosticStarted,
     diagnosticFinished,
-    commandAdmitted,
     children,
     spawn,
     order,
@@ -231,6 +219,56 @@ function createBoundary(action: "update" | "triage" = "update") {
     process: processFixture,
   };
 }
+
+it.each([
+  { suffix: "", code: "ENOENT", recorded: true },
+  { suffix: "", code: "EPERM", recorded: true },
+  { suffix: "-wal", code: "EPERM", recorded: true },
+  { suffix: "-wal", code: "ENOENT", recorded: false },
+])("records chmod $code for sentinel suffix '$suffix': $recorded", ({ suffix, code, recorded }) => {
+  const databasePath = "/fixture/state.sqlite";
+  const appendLog = vi.fn();
+  const chmodSync = vi.fn((filePath: string, _mode: number) => {
+    if (filePath === databasePath + suffix) {
+      throw Object.assign(new Error("fixture chmod"), { code });
+    }
+  });
+  const openStateDatabase: () => import("node:sqlite").DatabaseSync | null = runInNewContext(
+    sourceBetween("function openStateDatabase()", "${MANAGED_HANDOFF_RESULT_SOURCE}") +
+      "\nopenStateDatabase;",
+    {
+      params: { stateDatabasePath: databasePath, nodeSqliteLocation: ":memory:" },
+      assertStateDatabaseWriteAllowed: () => {},
+      require: createRequire(import.meta.url),
+      fs: { mkdirSync: vi.fn(), chmodSync },
+      path,
+      leaseStore: { transact: runSqliteImmediateTransactionSync },
+      extractSqliteTableSchema,
+      OPENCLAW_STATE_SCHEMA_SQL,
+      appendLog,
+    },
+  );
+  const database = openStateDatabase();
+  try {
+    expect(database?.isTransaction).toBe(false);
+    expect(
+      database?.prepare("SELECT COUNT(*) AS total FROM gateway_restart_sentinel").get(),
+    ).toEqual({
+      total: 0,
+    });
+    expect(chmodSync.mock.calls).toEqual([
+      [databasePath, 0o600],
+      [databasePath + "-wal", 0o600],
+      [databasePath + "-shm", 0o600],
+    ]);
+    expect(appendLog).toHaveBeenCalledTimes(recorded ? 1 : 0);
+    if (recorded) {
+      expect(appendLog.mock.calls[0]?.[0]).toContain("fixture chmod");
+    }
+  } finally {
+    database?.close();
+  }
+});
 
 it.each(["finalization", "diagnostics"] as const)(
   "joins settlement before cleanup after SIGTERM during %s",
@@ -258,8 +296,6 @@ it.each(["finalization", "diagnostics"] as const)(
     fixture.terminalFinished.resolve();
     fixture.diagnosticFinished.resolve();
     await completed;
-    expect(fixture.leaseStore.retarget).not.toHaveBeenCalled();
-    expect(fixture.process.execve).not.toHaveBeenCalled();
     expect(fixture.leaseStore.release).toHaveBeenCalledExactlyOnceWith(fixture.lease);
     expect(fixture.order).toEqual(
       stage === "finalization"
@@ -312,8 +348,6 @@ it.each([true, false])(
         "Reuse this diagnostic context on the Gateway host: openclaw triage --run --update-result /fixture/failure.json",
       );
     }
-    expect(fixture.leaseStore.retarget).not.toHaveBeenCalled();
-    expect(fixture.process.execve).not.toHaveBeenCalled();
     expect(fixture.process.exitCode).toBe(1);
   },
 );
@@ -336,35 +370,6 @@ it("revalidates the lease before admitting the diagnostic child", async () => {
   expect(fixture.spawn).toHaveBeenCalledTimes(2);
   expect(fixture.children[1]?.kill).toHaveBeenCalledExactlyOnceWith("SIGKILL");
   expect(fixture.order).not.toContain("diagnostic:start");
-  expect(fixture.leaseStore.retarget).not.toHaveBeenCalled();
-  expect(fixture.process.execve).not.toHaveBeenCalled();
   expect(fixture.process.stdin.destroy).toHaveBeenCalledOnce();
   expect(fixture.process.exitCode).toBe(1);
 });
-
-it.each([0, 7])(
-  "preserves failed admission through outer finalization when triage exits %s",
-  async (code) => {
-    const fixture = createBoundary("triage");
-    const completed = fixture.command();
-    await awaitGateBeforeSettlement(
-      fixture.commandAdmitted.promise,
-      completed,
-      "command not admitted",
-    );
-    const child = fixture.children[0]!;
-    child.exitCode = code;
-    child.emit("exit", code, null);
-    child.emit("close", code, null);
-    await completed;
-    expect(fixture.logs).toContain(
-      "The installed update does not support automatic diagnostics. Run openclaw triage manually.",
-    );
-    expect(fixture.logs).toContain("managed update helper completed code=" + (code || 1));
-    expect(fixture.process.exitCode).toBe(code || 1);
-    expect(fixture.process.stdin.destroy).toHaveBeenCalledOnce();
-    expect(fixture.fs.closeSync).toHaveBeenCalledWith(9);
-    expect(fixture.fs.rmSync).toHaveBeenCalledWith("/fixture/params.json", { force: true });
-    expect(vi.getTimerCount()).toBe(0);
-  },
-);

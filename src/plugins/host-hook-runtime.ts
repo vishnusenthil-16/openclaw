@@ -163,7 +163,7 @@ export function setPluginRunContext(params: {
   // A new write owns its namespace map, even when it repeats the same value.
   const namespaces = new Map(byPlugin.get(params.pluginId));
   byPlugin.set(params.pluginId, namespaces);
-  namespaces.set(namespace, structuredClone(params.patch.value));
+  namespaces.set(namespace, params.patch.value);
   return true;
 }
 
@@ -178,7 +178,7 @@ export function getPluginRunContext(params: {
     return undefined;
   }
   const value = getPluginRunContexts().get(runId)?.get(params.pluginId)?.get(namespace);
-  return value === undefined ? undefined : structuredClone(value);
+  return value;
 }
 
 type PluginRunContextSelection = {
@@ -298,7 +298,7 @@ function snapshotAgentEventMetadata(event: AgentEventPayload): AgentEventPayload
       Object.defineProperty(data, key, { value, enumerable: true });
     }
   }
-  return structuredClone({ ...event, data });
+  return { ...event, data };
 }
 
 export function dispatchPluginAgentEventSubscriptions(params: {
@@ -361,7 +361,7 @@ export function dispatchPluginAgentEventSubscriptions(params: {
         registration.subscription.handle(
           registration.subscription.payload === "metadata"
             ? snapshotAgentEventMetadata(params.event)
-            : structuredClone(params.event),
+            : params.event,
           ctx,
         ),
       )

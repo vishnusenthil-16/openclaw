@@ -1,4 +1,3 @@
-import type { TriageFailureContext } from "../commands/triage-prompt.js";
 import type { RespawnSupervisor } from "./supervisor-markers.js";
 import type { DevUpdateTarget } from "./update-dev-target.js";
 import type { resolveUpdateCliArgv } from "./update-managed-service-handoff-command.js";
@@ -30,12 +29,6 @@ export type ManagedServiceUpdateHandoffParams = Parameters<typeof resolveUpdateC
   devTarget?: DevUpdateTarget;
   parentPid?: number;
   invocationCwd?: string;
-  action?: {
-    kind: "triage";
-    failure: TriageFailureContext;
-    entrypoint: string;
-    nodeRunner: string;
-  };
 };
 
 export type ManagedServiceUpdateHandoffResult = {

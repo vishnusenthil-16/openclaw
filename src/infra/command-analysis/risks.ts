@@ -224,10 +224,6 @@ function detectCarrierInlineEvalArgvInternal(
   return detectInlineEvalArgvInternal(carriedArgv, seenArgv);
 }
 
-export function detectCarrierInlineEvalArgv(argv: string[]): InterpreterInlineEvalHit | null {
-  return detectCarrierInlineEvalArgvInternal(argv, new Set());
-}
-
 function detectInlineEvalArgvInternal(
   argv: string[] | undefined | null,
   seenArgv: Set<string>,

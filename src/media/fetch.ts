@@ -492,7 +492,9 @@ async function* responseBodyChunks(
     }
     try {
       reader.releaseLock();
-    } catch {}
+    } catch {
+      // The request owner cancels failed reads; lock cleanup must not mask their error.
+    }
   }
 }
 

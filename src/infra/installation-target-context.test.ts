@@ -41,7 +41,6 @@ describe("installation target ownership", () => {
         delete env.OPENCLAW_CONFIG_PATH;
         env.OPENCLAW_WORKSPACE_DIR = state.path("execution cwd");
         expect(target).toEqual({ stateDir, configPath, defaultWorkspaceDir });
-        expect(Object.isFrozen(target)).toBe(true);
         expect(installationTargetEnv(target)).toEqual({
           OPENCLAW_STATE_DIR: stateDir,
           OPENCLAW_CONFIG_PATH: configPath,
@@ -70,7 +69,6 @@ describe("installation target ownership", () => {
           withInstallationTarget(target, async () => {
             await Promise.resolve();
             expect(getInstallationTarget()).toEqual(target);
-            expect(Object.isFrozen(getInstallationTarget())).toBe(true);
             withInstallationTarget(undefined, () =>
               expect(getInstallationTarget()).toBeUndefined(),
             );

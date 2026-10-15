@@ -128,7 +128,7 @@ export function normalizeWebPushDevicePreferences(value: unknown): WebPushDevice
   return {
     enabled: typeof source.enabled === "boolean" ? source.enabled : true,
     label: normalizeWebPushDisplayLabel(source.label) ?? "",
-    ...(categories && Object.keys(categories).length > 0 ? { categories } : {}),
+    ...(Object.keys(categories).length > 0 ? { categories } : {}),
     ...(normalizedDetailLevel ? { detailLevel: normalizedDetailLevel } : {}),
     ...(normalizedQuietHours ? { quietHours: normalizedQuietHours } : {}),
     ...(normalizedAgentIds ? { agentIds: normalizedAgentIds } : {}),

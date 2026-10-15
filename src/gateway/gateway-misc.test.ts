@@ -88,7 +88,9 @@ describe("GatewayClient", () => {
   }
 
   function registerGatewayOnlyProxy() {
-    return registerActiveManagedProxyUrl(new URL("http://127.0.0.1:3128"), "gateway-only");
+    return registerActiveManagedProxyUrl(new URL("http://127.0.0.1:3128"), {
+      loopbackMode: "gateway-only",
+    });
   }
 
   test("uses the admitted pairing identity for shared-auth connect failures", async () => {

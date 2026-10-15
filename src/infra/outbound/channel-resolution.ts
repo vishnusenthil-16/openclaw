@@ -91,7 +91,7 @@ function* resolveOutboundChannelPluginSteps(
   if (!normalized && channel && channel !== INTERNAL_MESSAGE_CHANNEL) {
     const active = resolveOutboundPluginFromRuntimeRegistry(
       channel,
-      getOutboundRuntimeRegistry() ?? undefined,
+      getOutboundRuntimeRegistry(),
       true,
     );
     if (active) {

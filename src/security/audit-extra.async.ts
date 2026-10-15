@@ -382,41 +382,51 @@ export async function collectStateDeepFilesystemFindings(params: {
   const { formatPermissionDetail, formatPermissionRemediation, inspectPathPermissions } =
     await loadAuditFsModule();
 
-  const oauthPerms = await inspectPathPermissions(oauthDir, {
-    env: params.env,
-    platform: params.platform,
-    exec: params.execIcacls,
+  const inspectTarget = async (
+    targetPath: string,
+    target: {
+      checkId: string;
+      label: string;
+      readableDetail: string;
+      writableDetail?: string;
+      isDir?: true;
+    },
+  ): Promise<void> => {
+    const perms = await inspectPathPermissions(targetPath, {
+      env: params.env,
+      platform: params.platform,
+      exec: params.execIcacls,
+    });
+    if (!perms.ok || (target.isDir && !perms.isDir)) {
+      return;
+    }
+    const writable = target.writableDetail && (perms.worldWritable || perms.groupWritable);
+    if (!writable && !perms.worldReadable && !perms.groupReadable) {
+      return;
+    }
+    const access = writable ? "writable" : "readable";
+    findings.push({
+      checkId: `${target.checkId}.perms_${access}`,
+      severity: writable ? "critical" : "warn",
+      title: `${target.label} is ${access} by others`,
+      detail: `${formatPermissionDetail(targetPath, perms)}; ${writable ? target.writableDetail : target.readableDetail}`,
+      remediation: formatPermissionRemediation({
+        targetPath,
+        perms,
+        isDir: target.isDir === true,
+        posixMode: target.isDir ? 0o700 : 0o600,
+        env: params.env,
+      }),
+    });
+  };
+
+  await inspectTarget(oauthDir, {
+    checkId: "fs.credentials_dir",
+    label: "Credentials dir",
+    writableDetail: "another user could drop/modify credential files.",
+    readableDetail: "credentials and allowlists can be sensitive.",
+    isDir: true,
   });
-  if (oauthPerms.ok && oauthPerms.isDir) {
-    let finding: SecurityAuditFinding | undefined;
-    if (oauthPerms.worldWritable || oauthPerms.groupWritable) {
-      finding = {
-        checkId: "fs.credentials_dir.perms_writable",
-        severity: "critical",
-        title: "Credentials dir is writable by others",
-        detail: `${formatPermissionDetail(oauthDir, oauthPerms)}; another user could drop/modify credential files.`,
-      };
-    } else if (oauthPerms.groupReadable || oauthPerms.worldReadable) {
-      finding = {
-        checkId: "fs.credentials_dir.perms_readable",
-        severity: "warn",
-        title: "Credentials dir is readable by others",
-        detail: `${formatPermissionDetail(oauthDir, oauthPerms)}; credentials and allowlists can be sensitive.`,
-      };
-    }
-    if (finding) {
-      findings.push({
-        ...finding,
-        remediation: formatPermissionRemediation({
-          targetPath: oauthDir,
-          perms: oauthPerms,
-          isDir: true,
-          posixMode: 0o700,
-          env: params.env,
-        }),
-      });
-    }
-  }
 
   const agentScope = await loadAgentScopeModule();
   const agentIds = agentScope.listAgentEntries(params.cfg).map((agent) => agent.id);
@@ -445,66 +455,20 @@ export async function collectStateDeepFilesystemFindings(params: {
       })),
     ];
     for (const authTarget of authTargets) {
-      const authPerms = await inspectPathPermissions(authTarget.path, {
-        env: params.env,
-        platform: params.platform,
-        exec: params.execIcacls,
+      await inspectTarget(authTarget.path, {
+        checkId: "fs.auth_profiles",
+        label: authTarget.label,
+        writableDetail: "another user could inject credentials.",
+        readableDetail: "auth profile storage contains API keys and OAuth tokens.",
       });
-      if (authPerms.ok) {
-        let finding: SecurityAuditFinding | undefined;
-        if (authPerms.worldWritable || authPerms.groupWritable) {
-          finding = {
-            checkId: "fs.auth_profiles.perms_writable",
-            severity: "critical",
-            title: `${authTarget.label} is writable by others`,
-            detail: `${formatPermissionDetail(authTarget.path, authPerms)}; another user could inject credentials.`,
-          };
-        } else if (authPerms.worldReadable || authPerms.groupReadable) {
-          finding = {
-            checkId: "fs.auth_profiles.perms_readable",
-            severity: "warn",
-            title: `${authTarget.label} is readable by others`,
-            detail: `${formatPermissionDetail(authTarget.path, authPerms)}; auth profile storage contains API keys and OAuth tokens.`,
-          };
-        }
-        if (finding) {
-          findings.push({
-            ...finding,
-            remediation: formatPermissionRemediation({
-              targetPath: authTarget.path,
-              perms: authPerms,
-              isDir: false,
-              posixMode: 0o600,
-              env: params.env,
-            }),
-          });
-        }
-      }
     }
 
     const storePath = path.join(params.stateDir, "agents", agentId, "sessions", "sessions.json");
-    const storePerms = await inspectPathPermissions(storePath, {
-      env: params.env,
-      platform: params.platform,
-      exec: params.execIcacls,
+    await inspectTarget(storePath, {
+      checkId: "fs.sessions_store",
+      label: "sessions.json",
+      readableDetail: "routing and transcript metadata can be sensitive.",
     });
-    if (storePerms.ok) {
-      if (storePerms.worldReadable || storePerms.groupReadable) {
-        findings.push({
-          checkId: "fs.sessions_store.perms_readable",
-          severity: "warn",
-          title: "sessions.json is readable by others",
-          detail: `${formatPermissionDetail(storePath, storePerms)}; routing and transcript metadata can be sensitive.`,
-          remediation: formatPermissionRemediation({
-            targetPath: storePath,
-            perms: storePerms,
-            isDir: false,
-            posixMode: 0o600,
-            env: params.env,
-          }),
-        });
-      }
-    }
   }
 
   const logFile = normalizeOptionalString(params.cfg.logging?.file) ?? "";
@@ -512,28 +476,11 @@ export async function collectStateDeepFilesystemFindings(params: {
     const expanded = logFile.startsWith("~") ? expandTilde(logFile, params.env) : logFile;
     if (expanded) {
       const logPath = path.resolve(expanded);
-      const logPerms = await inspectPathPermissions(logPath, {
-        env: params.env,
-        platform: params.platform,
-        exec: params.execIcacls,
+      await inspectTarget(logPath, {
+        checkId: "fs.log_file",
+        label: "Log file",
+        readableDetail: "logs can contain private messages and tool output.",
       });
-      if (logPerms.ok) {
-        if (logPerms.worldReadable || logPerms.groupReadable) {
-          findings.push({
-            checkId: "fs.log_file.perms_readable",
-            severity: "warn",
-            title: "Log file is readable by others",
-            detail: `${formatPermissionDetail(logPath, logPerms)}; logs can contain private messages and tool output.`,
-            remediation: formatPermissionRemediation({
-              targetPath: logPath,
-              perms: logPerms,
-              isDir: false,
-              posixMode: 0o600,
-              env: params.env,
-            }),
-          });
-        }
-      }
     }
   }
 

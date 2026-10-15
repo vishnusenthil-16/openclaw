@@ -81,8 +81,8 @@ function readTableColumns(db: DatabaseSync, tableName: string): TableColumnRow[]
     .all() as TableColumnRow[];
 }
 
-function readVisibleColumns(db: DatabaseSync, tableName: string): string[] {
-  return readTableColumns(db, tableName)
+function readVisibleColumns(tableName: string, columns: readonly TableColumnRow[]): string[] {
+  return columns
     .filter((row) => Number(row.hidden ?? 0) === 0)
     .map((row) => {
       if (typeof row.name !== "string" || row.name.length === 0) {
@@ -96,11 +96,11 @@ function readTableRowidModel(
   db: DatabaseSync,
   tableName: string,
   tableRow: TableListRow,
+  columns: readonly TableColumnRow[],
 ): TableRowidModel {
   if (Number(tableRow.wr ?? 0) === 1) {
     return { alias: null, storage: "without-rowid" };
   }
-  const columns = readTableColumns(db, tableName);
   const primaryKeyColumns = columns.filter((column) => Number(column.pk ?? 0) > 0);
   const primaryKeyIndex = db
     .prepare(`SELECT 1 AS found FROM pragma_index_list(?) WHERE origin = 'pk' LIMIT 1`)
@@ -147,9 +147,10 @@ function readCanonicalStrictTables(schemaSql: string): CanonicalStrictTable[] {
         if (typeof schemaRow?.sql !== "string") {
           throw new Error(`Canonical SQLite table ${row.name} has no CREATE statement`);
         }
-        const rowidModel = readTableRowidModel(canonical, row.name, row);
+        const columns = readTableColumns(canonical, row.name);
+        const rowidModel = readTableRowidModel(canonical, row.name, row, columns);
         return {
-          columns: readVisibleColumns(canonical, row.name),
+          columns: readVisibleColumns(row.name, columns),
           createSql: schemaRow.sql,
           name: row.name,
           rowidAlias: rowidModel.alias,
@@ -336,13 +337,19 @@ export function migrateSqliteSchemaToStrictInTransaction(
     if (currentTableRows.has(migrationTable)) {
       throw new Error(`SQLite STRICT migration table already exists: ${migrationTable}`);
     }
-    const currentColumns = readVisibleColumns(db, table.name);
+    const currentColumnRows = readTableColumns(db, table.name);
+    const currentColumns = readVisibleColumns(table.name, currentColumnRows);
     assertMatchingColumns(table.name, currentColumns, table.columns);
     const currentTableRow = currentTableRows.get(table.name);
     if (!currentTableRow) {
       throw new Error(`SQLite table ${table.name} disappeared during STRICT migration`);
     }
-    const currentRowidModel = readTableRowidModel(db, table.name, currentTableRow);
+    const currentRowidModel = readTableRowidModel(
+      db,
+      table.name,
+      currentTableRow,
+      currentColumnRows,
+    );
     if (currentRowidModel.storage !== table.rowidStorage) {
       throw new Error(
         `SQLite table ${table.name} changes rowid storage from ${currentRowidModel.storage} to ${table.rowidStorage}; refusing an identity-changing STRICT migration`,

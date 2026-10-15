@@ -12,10 +12,10 @@ import type {
   InterruptedUpdateSettlementResult,
 } from "./update-run-interruption-contract.js";
 import {
+  decodeRun,
   hasStoredUpdateRecovery,
   readActiveUpdateRun,
   readLatestUpdateRun,
-  readUpdateRunRecord,
 } from "./update-run-read.kernel.js";
 import { finishUpdateRunRecord, type UpdateRunRecord } from "./update-run-record.js";
 import { recordUpdateRunVerificationRecord } from "./update-run-verification.js";
@@ -124,7 +124,7 @@ export function persistInterruptedUpdateObservation(
             .set({ steps_json: row.steps_json })
             .where("run_id", "=", current.runId),
         );
-        return accept(readUpdateRunRecord(db, current.runId));
+        return accept({ ...current, steps: decodeRun(row).steps });
       }
       if (!verification) {
         return accept(persistRun(db, current, options));

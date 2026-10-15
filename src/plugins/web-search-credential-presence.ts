@@ -21,12 +21,8 @@ function hasConfiguredSearchCredentialCandidate(searchConfig: unknown): boolean 
 }
 
 function hasConfiguredPluginWebSearchCandidate(config: OpenClawConfig): boolean {
-  const entries = asOptionalObjectRecord(config.plugins?.entries);
-  if (!entries) {
-    return false;
-  }
-  return Object.values(entries).some((entry) => {
-    const pluginConfig = asOptionalObjectRecord(entry)?.config;
+  return Object.values(config.plugins?.entries ?? {}).some((entry) => {
+    const pluginConfig = entry.config;
     return hasConfiguredSearchCredentialCandidate(asOptionalObjectRecord(pluginConfig)?.webSearch);
   });
 }

@@ -1,9 +1,5 @@
 // Runs startup update checks and optional auto-update handoff.
 import { createHash, randomUUID } from "node:crypto";
-import {
-  asDateTimestampMs,
-  timestampMsToIsoString,
-} from "@openclaw/normalization-core/number-coercion";
 import type {
   UpdateAvailable,
   UpdateScheduleState,
@@ -159,18 +155,6 @@ function clearAvailabilityState(nextState: UpdateCheckState): void {
   delete nextState.lastAvailableTag;
 }
 
-function resolveUpdateCheckNowMs(valueMs: unknown): number {
-  return asDateTimestampMs(valueMs) ?? asDateTimestampMs(Date.now()) ?? 0;
-}
-
-function resolveUpdateCheckTimestamp(valueMs: unknown): string {
-  return (
-    timestampMsToIsoString(valueMs) ??
-    timestampMsToIsoString(resolveUpdateCheckNowMs(Date.now())) ??
-    new Date().toISOString()
-  );
-}
-
 function resolveStableAutoApplyAtMs(params: {
   nextState: UpdateCheckState;
   nowMs: number;
@@ -187,7 +171,7 @@ function resolveStableAutoApplyAtMs(params: {
   if (!matchesExisting) {
     params.nextState.autoFirstSeenVersion = params.version;
     params.nextState.autoFirstSeenTag = params.tag;
-    params.nextState.autoFirstSeenAt = resolveUpdateCheckTimestamp(params.nowMs);
+    params.nextState.autoFirstSeenAt = new Date(params.nowMs).toISOString();
   }
 
   const parsedFirstSeenMs = params.nextState.autoFirstSeenAt
@@ -216,10 +200,10 @@ export function initializeGatewayUpdateStatus(): ReturnType<typeof resolveStartu
 }
 
 async function recordAutoUpdateAttempt(version: string): Promise<void> {
-  const attemptAt = resolveUpdateCheckNowMs(Date.now());
+  const attemptAt = Date.now();
   const attemptState = await readState();
   attemptState.autoLastAttemptVersion = version;
-  attemptState.autoLastAttemptAt = resolveUpdateCheckTimestamp(attemptAt);
+  attemptState.autoLastAttemptAt = new Date(attemptAt).toISOString();
   await writeState(attemptState);
 }
 
@@ -293,7 +277,7 @@ async function runGatewayUpdateCheckOwned(
         if (
           lastAttemptAt != null &&
           Number.isFinite(lastAttemptAt) &&
-          resolveUpdateCheckNowMs(Date.now()) - lastAttemptAt < ONE_HOUR_MS
+          Date.now() - lastAttemptAt < ONE_HOUR_MS
         ) {
           return;
         }
@@ -408,9 +392,7 @@ async function runGatewayUpdateCheckOwned(
   if (!isCurrent()) {
     return;
   }
-  const rawNow = Date.now();
-  const now = resolveUpdateCheckNowMs(rawNow);
-  const rawNowIsValid = asDateTimestampMs(rawNow) !== undefined;
+  const now = Date.now();
   const lastAttemptAt = state.autoLastAttemptAt ? Date.parse(state.autoLastAttemptAt) : null;
   const recentAttempt =
     lastAttemptAt != null && Number.isFinite(lastAttemptAt) && now - lastAttemptAt < ONE_HOUR_MS;
@@ -432,7 +414,6 @@ async function runGatewayUpdateCheckOwned(
     : UPDATE_CHECK_INTERVAL_MS;
   if (
     !shouldBypassSharedThrottle &&
-    rawNowIsValid &&
     lastCheckedAt &&
     Number.isFinite(lastCheckedAt) &&
     now - lastCheckedAt < checkIntervalMs
@@ -442,7 +423,7 @@ async function runGatewayUpdateCheckOwned(
 
   const nextState: UpdateCheckState = {
     ...state,
-    lastCheckedAt: resolveUpdateCheckTimestamp(now),
+    lastCheckedAt: new Date(now).toISOString(),
     lastCheckedChannel: configuredChannel,
   };
   if (!cacheMatchesChannel) {
@@ -571,7 +552,7 @@ async function runGatewayUpdateCheckOwned(
         params.log.info("auto-update deferred (stable rollout window active)", {
           version: resolved.version,
           tag,
-          applyAfter: applyAfterMs ? resolveUpdateCheckTimestamp(applyAfterMs) : undefined,
+          applyAfter: applyAfterMs ? new Date(applyAfterMs).toISOString() : undefined,
         });
       } else if (recentAttempt && state.autoLastAttemptVersion === resolved.version) {
         params.log.info("auto-update deferred (recent attempt exists)", {

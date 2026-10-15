@@ -6,7 +6,7 @@ import type { PluginInstanceDisposalResult } from "./plugin-instance.types.js";
 
 /** Terminal retirement reports failures only after all admitted cleanup has settled. */
 export function summarizePluginRetirementResults(
-  results: readonly PromiseSettledResult<PluginHostCleanupResult>[],
+  results: readonly PromiseSettledResult<void | PluginHostCleanupResult>[],
   message: string,
 ): PluginHostCleanupResult {
   const failures = results.flatMap((result) =>
@@ -16,11 +16,13 @@ export function summarizePluginRetirementResults(
     throw new AggregateError(failures, message);
   }
   const completed = results.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : [],
+    result.status === "fulfilled" && result.value ? [result.value] : [],
   );
+  const deferredPluginIds = completed.flatMap((result) => result.deferredPluginIds ?? []);
   return {
     cleanupCount: completed.reduce((count, result) => count + result.cleanupCount, 0),
     failures: completed.flatMap((result) => result.failures),
+    ...(deferredPluginIds.length ? { deferredPluginIds } : {}),
   };
 }
 

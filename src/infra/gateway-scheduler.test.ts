@@ -346,8 +346,7 @@ describe("Gateway timed work", () => {
       const oldWake = time.wakes[0];
       scheduler.schedule({ id: "queue", atMs, mode, run });
       retired.cancel();
-      expect(oldWake).toBeDefined();
-      await oldWake?.run();
+      expect(oldWake?.cancelled).toBe(true);
       expect(scheduler.nextWakeAtMs).toBe(nextWakeAtMs);
       expect(time.armedAtMs).toBe(nextWakeAtMs);
       await time.advanceTo(nextWakeAtMs);

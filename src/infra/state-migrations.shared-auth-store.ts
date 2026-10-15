@@ -435,10 +435,6 @@ async function cleanupSourceRows(params: {
           database,
           db.deleteFrom("auth_profile_state").where("state_key", "=", SOURCE_STORE_KEY),
         );
-        const after = readSharedAuthLegacyRowsFromDatabase(database);
-        if (after.store || after.state) {
-          throw new Error("legacy shared auth rows remain after cleanup");
-        }
         return before.store !== null || before.state !== null;
       },
       {

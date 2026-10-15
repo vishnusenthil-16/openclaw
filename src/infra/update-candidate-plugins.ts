@@ -503,9 +503,8 @@ export async function copyUpdateCandidatePlugins(
     }
   }
   if (copied) {
-    const projected = structuredClone(copied.records);
     for (const [id, locations] of Object.entries(plan.recordPaths)) {
-      const record = projected[id];
+      const record = copied.records[id];
       if (!record) {
         throw new Error("Plugin install records changed after snapshot inventory");
       }
@@ -517,7 +516,7 @@ export async function copyUpdateCandidatePlugins(
       }
     }
     // Preserve the copied index wrapper; metadata naming source paths must be rebuilt.
-    const next = { ...copied.value, index: { installRecords: projected } };
+    const next = { ...copied.value, index: { installRecords: copied.records } };
     const db = openNodeSqliteDatabase(shared);
     try {
       executeSqliteQuerySync(

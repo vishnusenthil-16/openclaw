@@ -228,7 +228,7 @@ function isOpenAICompatibleProviderConfig(
   return (
     normalizeProviderId(id) === OPENAI_COMPATIBLE_EMBEDDING_PROVIDER_ID ||
     OPENAI_COMPATIBLE_MODEL_APIS.has(normalizeProviderId(provider.api ?? "")) ||
-    (!provider.api && typeof provider.baseUrl === "string" && provider.baseUrl.trim().length > 0)
+    (!provider.api && Boolean(provider.baseUrl?.trim()))
   );
 }
 
@@ -332,7 +332,7 @@ async function postEmbeddingRequest(params: {
   const body = {
     model: client.model,
     input,
-    ...(typeof client.dimensions === "number" ? { dimensions: client.dimensions } : {}),
+    ...(client.dimensions !== undefined ? { dimensions: client.dimensions } : {}),
     ...(inputType ? { input_type: inputType } : {}),
   };
   const localServiceLease =
@@ -492,7 +492,7 @@ export const openAICompatibleEmbeddingProviderAdapter: EmbeddingProviderAdapter 
       provider: {
         id: OPENAI_COMPATIBLE_EMBEDDING_PROVIDER_ID,
         model: client.model,
-        ...(typeof client.dimensions === "number" ? { dimensions: client.dimensions } : {}),
+        ...(client.dimensions !== undefined ? { dimensions: client.dimensions } : {}),
         embed: async (input, callOptions) => {
           const [embedding] = await embedBatch([input], callOptions);
           if (!embedding) {
@@ -509,7 +509,7 @@ export const openAICompatibleEmbeddingProviderAdapter: EmbeddingProviderAdapter 
           provider: client.providerId,
           baseUrl: client.baseUrl,
           model: client.model,
-          ...(typeof client.dimensions === "number" ? { dimensions: client.dimensions } : {}),
+          ...(client.dimensions !== undefined ? { dimensions: client.dimensions } : {}),
           ...(client.inputType ? { inputType: client.inputType } : {}),
           ...(client.queryInputType ? { queryInputType: client.queryInputType } : {}),
           ...(client.documentInputType ? { documentInputType: client.documentInputType } : {}),

@@ -385,57 +385,6 @@ describe("managed service update handoff command", () => {
   );
 
   it.each([
-    { runtime: "node", runtimeArgs: [] },
-    { runtime: "bun", runtimeArgs: ["--no-install"] },
-  ])(
-    "stages automatic triage in a stop-linked scope using $runtime",
-    async ({ runtime, runtimeArgs }) => {
-      const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-triage-command-"));
-      tempDirs.add(root);
-      const executable = path.join(root, runtime);
-      await fs.writeFile(path.join(root, "systemd-run"), "#!/bin/sh\nexit 1\n", { mode: 0o700 });
-      const { startManagedServiceUpdateHandoff } =
-        await import("./update-managed-service-handoff.js");
-      const started = await startManagedServiceUpdateHandoff({
-        root,
-        restartDrainTimeoutMs: 0,
-        supervisor: "systemd",
-        env: {
-          PATH: root,
-          OPENCLAW_STATE_DIR: root,
-        },
-        handoffId: "triage-fixture",
-        execPath: executable,
-        meta: {},
-        action: {
-          kind: "triage" as const,
-          entrypoint: path.join(root, "dist/index.js"),
-          nodeRunner: executable,
-          failure: {
-            kind: "gateway-startup" as const,
-            phase: "startup",
-            error: "bad certificate",
-            gateway: "verify-running" as const,
-          },
-        },
-      });
-      const [, args] = spawnMock.mock.calls[0] as [string, string[]];
-      tempDirs.add(path.dirname(started.logPath));
-      const { paramsPath } = readManagedHandoffArtifacts(args);
-      expect(args).toContain("--property=PartOf=openclaw-gateway.service");
-      const staged = JSON.parse(await fs.readFile(paramsPath, "utf8"));
-      expect(args.slice(args.indexOf(executable) + 1, -2)).toEqual(runtimeArgs);
-      expect(staged.runtimeArgs).toEqual(runtimeArgs);
-      expect(staged.commandArgv).toEqual([
-        executable,
-        ...runtimeArgs,
-        path.join(root, "dist/index.js"),
-        "triage",
-      ]);
-    },
-  );
-
-  it.each([
     { drain: 300_000, expected: 330_000 },
     { drain: Number.MAX_SAFE_INTEGER, expected: 2_147_483_647 },
   ])(

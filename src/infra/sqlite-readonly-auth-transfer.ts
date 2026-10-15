@@ -26,13 +26,7 @@ export function encodeSqliteAuthTransferFrame(frame: SqliteWorkerTransferFrame) 
 }
 
 function decodeFrame(value: unknown, label: string): SqliteWorkerTransferFrame {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== "number" ||
-    !Number.isSafeInteger(value.id) ||
-    typeof value.sequence !== "number" ||
-    !Number.isSafeInteger(value.sequence)
-  ) {
+  if (!isRecord(value) || typeof value.id !== "number" || typeof value.sequence !== "number") {
     throw new Error(`Invalid ${label} transfer frame`);
   }
   const { id, sequence } = value;

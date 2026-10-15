@@ -75,7 +75,7 @@ export function normalizeModelCompat(
     return model;
   }
 
-  const compat = model.compat ?? undefined;
+  const compat = model.compat;
   if (!baseUrl) {
     return model;
   }

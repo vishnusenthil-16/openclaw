@@ -41,9 +41,9 @@ export function createSqliteSourceFenceAdmission(options: {
     if (!identity.physical.key.startsWith("file:") || !identity.incarnation) {
       throw new Error("SQLite source fence requires retained durable owners");
     }
-    return structuredClone(identity);
+    return identity;
   });
-  const destination = structuredClone(options.destination.identity);
+  const destination = options.destination.identity;
   return (operation) => {
     const decision = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
     const signals = new Set([options.signal, ...owners.map((owner) => owner.signal)]);

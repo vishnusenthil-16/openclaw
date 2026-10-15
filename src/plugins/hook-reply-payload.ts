@@ -7,7 +7,10 @@ import type { PluginHookReplyPayload } from "./hook-types.js";
 
 export const toPluginReplyPayload = (payload: ReplyPayload): PluginHookReplyPayload => {
   const { trustedLocalMedia: _trustedLocalMedia, ...visiblePayload } = payload;
-  return structuredClone(visiblePayload);
+  // Media comparisons must retain the host's references across plugin edits.
+  return payload.mediaUrls
+    ? { ...visiblePayload, mediaUrls: [...payload.mediaUrls] }
+    : visiblePayload;
 };
 const areMediaUrlArraysEqual = (
   left: readonly string[] | undefined,
@@ -34,10 +37,10 @@ export const acceptPluginReplyPayload = (
   previous: ReplyPayload,
   next: PluginHookReplyPayload,
 ): ReplyPayload => {
-  const clonedPayload = toPluginReplyPayload(next);
-  const acceptedPayload = preservesTrustedMediaRefs(previous, clonedPayload)
-    ? { ...clonedPayload, trustedLocalMedia: true }
-    : clonedPayload;
+  const visiblePayload = toPluginReplyPayload(next);
+  const acceptedPayload = preservesTrustedMediaRefs(previous, visiblePayload)
+    ? { ...visiblePayload, trustedLocalMedia: true }
+    : visiblePayload;
   return recordReplyPayloadMediaSelectionChange(
     collectReplyMediaEntries(previous).map(({ url }) => url),
     copyReplyPayloadMetadata(previous, acceptedPayload),

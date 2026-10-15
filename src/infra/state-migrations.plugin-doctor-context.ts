@@ -307,7 +307,7 @@ export type PluginDoctorChannelIngressAccessOptions = {
   mutation?: { assertCurrent(): void };
 };
 
-/** Backed-up same-schema repair; source observations and replacement values freeze before yielding. */
+/** Backed-up same-schema repair with replacement JSON prepared before yielding. */
 async function repairPluginStateEntriesForDoctor(params: {
   pluginId: string;
   namespace: string;
@@ -318,7 +318,7 @@ async function repairPluginStateEntriesForDoctor(params: {
   const { pluginId, authority } = params;
   const env = { ...params.env };
   const namespace = validateNamespace(params.namespace);
-  const rows = structuredClone(params.replacements).map(({ entry, value }) => {
+  const rows = params.replacements.map(({ entry, value }) => {
     const { key, valueJson } = prepareRegisterParams(entry.key, value);
     return { entry, key, valueJson };
   });

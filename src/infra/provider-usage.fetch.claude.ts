@@ -196,7 +196,9 @@ export async function fetchClaudeUsage(
       if (typeof raw === "string" && raw.trim()) {
         message = raw.trim();
       }
-    } catch {}
+    } catch {
+      // The HTTP status below still reports failure when its error body is unreadable.
+    }
 
     // Claude Code CLI setup-token yields tokens that can be used for inference, but may not
     // include user:profile scope required by the OAuth usage endpoint. When a claude.ai

@@ -11,7 +11,9 @@ export function resolveUpdateInstallRoot(root: string): string {
       if (!fs.lstatSync(absolute, { throwIfNoEntry: false })) {
         return path.join(fs.realpathSync.native(path.dirname(absolute)), path.basename(absolute));
       }
-    } catch {}
+    } catch {
+      /* Unavailable parent identity retains the resolved absolute path. */
+    }
     return absolute;
   }
 }

@@ -28,12 +28,15 @@ async function copyOverridePayload(params: {
   packageFs: LocalOverridePackageRoot;
   recoveryDir: string;
   relativePath: string;
+  source?: { buffer: Buffer; stat: { mode: number } };
 }): Promise<{ savedPath: string; mode: number }> {
-  const source = await params.packageFs.read(params.relativePath, {
-    hardlinks: "allow",
-    maxBytes: Number.POSITIVE_INFINITY,
-    symlinks: "reject",
-  });
+  const source =
+    params.source ??
+    (await params.packageFs.read(params.relativePath, {
+      hardlinks: "allow",
+      maxBytes: Number.POSITIVE_INFINITY,
+      symlinks: "reject",
+    }));
   const mode = normalizeFileMode(source.stat.mode);
   const savedPath = path.join(
     params.recoveryDir,
@@ -254,6 +257,7 @@ export async function captureLocalPackageOverrides(params: {
         packageFs,
         recoveryDir: await ensureRecoveryDir(),
         relativePath: entry.path,
+        source: current,
       });
       changes.push({
         kind: "modified",

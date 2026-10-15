@@ -3,7 +3,6 @@ import {
   resolveExpiresAtMsFromDurationMs,
   timestampMsToIsoString,
 } from "@openclaw/normalization-core/number-coercion";
-import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import type { CronServiceContract } from "../cron/service-contract.js";
 import {
@@ -85,7 +84,7 @@ async function removeScheduledSessionTurn(params: {
 }): Promise<boolean> {
   try {
     const result = await params.cron.remove(params.jobId);
-    return isCronRemoveResult(result) && result.ok;
+    return result.ok;
   } catch (error) {
     log.warn(
       `plugin session turn cleanup failed (${formatScheduleLogContext(params)}): ${formatErrorMessage(error)}`,
@@ -129,12 +128,6 @@ function buildPluginSchedulerTagPrefix(params: {
   sessionKey: string;
 }): string {
   return `${PLUGIN_CRON_NAME_PREFIX}${params.pluginId}${PLUGIN_CRON_TAG_MARKER}${params.tag}:${params.sessionKey}:`;
-}
-
-function isCronRemoveResult(
-  value: unknown,
-): value is Awaited<ReturnType<CronServiceContract["remove"]>> {
-  return isRecord(value) && typeof value.ok === "boolean" && typeof value.removed === "boolean";
 }
 
 async function listAllCronJobsForPluginTagCleanup(
@@ -341,7 +334,7 @@ export async function unschedulePluginSessionTurnsByTag(params: {
     }
     try {
       const result = await cron.remove(id);
-      if (isCronRemoveResult(result) && result.ok && result.removed) {
+      if (result.ok && result.removed) {
         removed += 1;
         deletePluginSessionSchedulerJob({
           pluginId: params.pluginId,

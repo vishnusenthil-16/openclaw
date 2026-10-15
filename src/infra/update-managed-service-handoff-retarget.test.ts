@@ -81,7 +81,7 @@ function fixture() {
     lifetime?: Extract<ManagedHandoffLease["action"], { kind: "triage" }>["lifetime"],
     uncertain = false,
   ) => {
-    // Both independent processes finish through bind/activate/complete, then exit
+    // Both independent processes finish through bind/close/complete, then exit
     // without deleting the closed row. No fabricated lease grants reclamation.
     const common = `const fs=require('node:fs'),path=require('node:path'),{spawn,spawnSync}=require('node:child_process');
 const {createManagedHandoffLeaseStore}=require(${JSON.stringify(runtimeEntry)});
@@ -99,8 +99,8 @@ const acquired=store.acquire(${JSON.stringify(to)},'finished-owner',{kind:'triag
 if(acquired.kind!=='acquired')throw new Error('destination busy');
 const child=spawn(process.execPath,['-e',${JSON.stringify(executor)}],{stdio:['ignore','ignore','inherit','ipc']});
 child.once('message',lease=>process.stdout.write(JSON.stringify(lease)));
-const bound=store.bind(acquired.lease,child.pid),running=bound&&store.activate(bound);
-if(!running)throw new Error('activation failed');child.send(running);
+const bound=store.bind(acquired.lease,child.pid),closing=bound&&store.settle(bound,'closing');
+if(!closing)throw new Error('closing failed');child.send(closing);
 `,
       ],
       { encoding: "utf8", timeout: 10_000, env: options.serviceManagerEnv },
@@ -125,7 +125,7 @@ if(!running)throw new Error('activation failed');child.send(running);
 unix.each(["failed", "inactive"])(
   "retains an uncertain %s scope until systemd releases its cgroup",
   (activeState) => {
-    const { to, store, source, options, closedDestination } = fixture();
+    const { to, store, options, closedDestination } = fixture();
     const lifetime = {
       ...action.lifetime,
       placement: { kind: "attached" as const, invocation: "a".repeat(32) },
@@ -156,48 +156,14 @@ unix.each(["failed", "inactive"])(
         kind: "busy",
         owner: lease.owner,
       });
-      expect(store.retarget(source, to, action)).toEqual({ kind: "busy", owner: lease.owner });
       expect(store.read(to)).toEqual({ kind: "current", lease });
     }
     publishScope("");
     expect(store.stopNative(lease)).toBe(true);
     expect(store.release(lease)).toBe(true);
-    expect(store.retarget(source, to, action)?.kind).toBe("acquired");
+    expect(store.acquire(to, "contender", { kind: "update" }).kind).toBe("acquired");
   },
 );
-
-unix("moves the captured source key after its realpath changes and preserves the helper", () => {
-  const { from, to, store, source } = fixture();
-  fs.rmdirSync(from);
-  fs.symlinkSync(to, from, "dir");
-  const moved = store.retarget(source, to, action);
-  expect(moved?.kind).toBe("acquired");
-  if (moved?.kind !== "acquired") {
-    throw new Error("retarget refused");
-  }
-  expect(store.read(from)).toEqual({ kind: "absent" });
-  expect(moved.lease).toMatchObject({
-    key: to,
-    owner: source.owner,
-    helper: source.helper,
-    executor: source.helper,
-    action,
-  });
-  expect(store.current(source)).toBe(false);
-  expect(store.current(moved.lease)).toBe(true);
-});
-
-unix("keeps same-root transition in the existing binding flow", () => {
-  const { from, store, source } = fixture();
-  const moved = store.retarget(source, from, action);
-  expect(moved?.kind).toBe("acquired");
-  if (moved?.kind !== "acquired") {
-    throw new Error("retarget refused");
-  }
-  expect(moved.lease.key).toBe(from);
-  expect(moved.lease.updatedAt).toBeGreaterThan(source.updatedAt);
-  expect(store.current(moved.lease)).toBe(true);
-});
 
 unix("preserves the original error when canonical rollback closes the operation's handle", () => {
   const { from, to, store, source, options } = fixture();
@@ -220,7 +186,7 @@ unix("preserves the original error when canonical rollback closes the operation'
     }
     return db;
   });
-  expect(() => store.retarget(source, to, action)).toThrow(failure);
+  expect(() => store.acquire(to, "fresh-owner", { kind: "update" })).toThrow(failure);
   expect(damaged?.isOpen).toBe(false);
   opener.mockRestore();
   expect(store.read(from)).toEqual({ kind: "current", lease: source });
@@ -243,39 +209,6 @@ unix("preserves the original error when canonical rollback closes the operation'
   }
 });
 
-unix("refuses retarget while the update executor is still a child", async () => {
-  const { to, store, source } = fixture();
-  const child = spawn(process.execPath, ["-e", "process.stdin.resume()"], {
-    stdio: ["pipe", "ignore", "ignore"],
-  });
-  const exited = new Promise((resolve) => {
-    child.once("exit", resolve);
-  });
-  try {
-    const bound = store.bind(source, child.pid!)!;
-    expect(store.retarget(bound, to, action)).toBeNull();
-    expect(store.current(bound)).toBe(true);
-    expect(store.read(to)).toEqual({ kind: "absent" });
-  } finally {
-    child.kill();
-    await exited;
-  }
-});
-
-unix("does not touch a destination after the source generation is lost", () => {
-  const { to, store, source, racing, closedDestination } = fixture();
-  closedDestination();
-  const before = store.read(to);
-  let current: ManagedHandoffLease | null = null;
-  const other = racing(() => {
-    current = store.bind(source, process.pid);
-  });
-  expect(() => other.retarget(source, to, action)).toThrow("source changed");
-  expect(store.read(to)).toEqual(before);
-  expect(store.current(current!)).toBe(true);
-  expect(store.retarget(source, to, action)).toBeNull();
-});
-
 unix.each(["arrival", "generation"] as const)(
   "leaves a destination %s winner unchanged",
   (race) => {
@@ -288,7 +221,10 @@ unix.each(["arrival", "generation"] as const)(
       expect(store.acquire(to, "winner", { kind: "update" }).kind).toBe("acquired");
       winner = store.read(to);
     });
-    expect(other.retarget(source, to, action)).toEqual({ kind: "busy", owner: "winner" });
+    expect(other.acquire(to, "fresh-owner", { kind: "update" })).toEqual({
+      kind: "busy",
+      owner: "winner",
+    });
     expect(store.read(to)).toEqual(winner!);
     expect(store.current(source)).toBe(true);
   },
@@ -297,11 +233,11 @@ unix.each(["arrival", "generation"] as const)(
 unix("reclaims a closed destination only after its real helper and executor exit", () => {
   const { from, to, store, source, closedDestination } = fixture();
   closedDestination();
-  expect(store.retarget(source, to, action)?.kind).toBe("acquired");
-  expect(store.read(from)).toEqual({ kind: "absent" });
+  expect(store.acquire(to, "fresh-owner", { kind: "update" }).kind).toBe("acquired");
+  expect(store.read(from)).toEqual({ kind: "current", lease: source });
   expect(store.read(to)).toMatchObject({
     kind: "current",
-    lease: { owner: source.owner, helper: source.helper, action },
+    lease: { owner: "fresh-owner", action: { kind: "update" } },
   });
 });
 
@@ -337,7 +273,9 @@ unix("leaves source and destination unchanged when destination inspection is unr
   });
   const other = createStore(options);
   try {
-    expect(() => other.retarget(source, to, action)).toThrow("destination unreadable");
+    expect(() => other.acquire(to, "fresh-owner", { kind: "update" })).toThrow(
+      "destination unreadable",
+    );
   } finally {
     probe.mockRestore();
   }
@@ -346,7 +284,7 @@ unix("leaves source and destination unchanged when destination inspection is unr
 });
 
 // Released v1 claims are cleanup inputs only, never current runtime authority.
-unix.each(["update", "foreground", "retarget"] as const)(
+unix.each(["update", "foreground"] as const)(
   "retires a dead legacy process only at %s admission",
   (admission) => {
     const { from, to, store, source, options } = fixture();
@@ -367,20 +305,17 @@ unix.each(["update", "foreground", "retarget"] as const)(
       const before = rows();
       expect(store.read(to)).toEqual({ kind: "unreadable", error: expect.any(Error) });
       expect(rows()).toEqual(before);
-      const result =
-        admission === "retarget"
-          ? store.retarget(source, to, action)
-          : store.acquire(
-              to,
-              "legacy-owner",
-              admission === "update"
-                ? { kind: "update" }
-                : {
-                    kind: "triage",
-                    phase: "reserved",
-                    lifetime: { kind: "foreground", boot: store.bootIdentity() },
-                  },
-            );
+      const result = store.acquire(
+        to,
+        "legacy-owner",
+        admission === "update"
+          ? { kind: "update" }
+          : {
+              kind: "triage",
+              phase: "reserved",
+              lifetime: { kind: "foreground", boot: store.bootIdentity() },
+            },
+      );
       expect(result?.kind).toBe("acquired");
       expect(store.read(to)).toMatchObject({ kind: "current", lease: { version: 2 } });
       // A late stable updater/helper binding must lose its expected-payload CAS.
@@ -391,9 +326,7 @@ unix.each(["update", "foreground", "retarget"] as const)(
           )
           .run(payload, 2, to, "legacy-owner", payload).changes,
       ).toBe(0);
-      expect(store.read(from)).toEqual(
-        admission === "retarget" ? { kind: "absent" } : { kind: "current", lease: source },
-      );
+      expect(store.read(from)).toEqual({ kind: "current", lease: source });
     } finally {
       db.close();
     }
@@ -438,8 +371,8 @@ unix.each([
     value: () => ({ version: 1, pid: process.pid, startIdentity: "0", action: { kind: "update" } }),
   },
   { label: "non-object", value: () => [] },
-])("preserves the complete $label legacy row on admission and retarget", ({ value }) => {
-  const { to, store, source, options } = fixture();
+])("preserves the complete $label legacy row on admission", ({ value }) => {
+  const { to, store, options } = fixture();
   const db = new DatabaseSync(options.databasePath);
   try {
     db.prepare(
@@ -449,7 +382,6 @@ unix.each([
       db.prepare("SELECT * FROM managed_update_handoffs ORDER BY install_root").all();
     const before = rows();
     expect(() => store.acquire(to, "fresh-owner", { kind: "update" })).toThrow("incompatible");
-    expect(() => store.retarget(source, to, action)).toThrow("incompatible");
     expect(rows()).toEqual(before);
   } finally {
     db.close();
@@ -459,65 +391,34 @@ unix.each([
 unix.each(["owner", "payload_json", "updated_at"] as const)(
   "preserves a legacy %s replacement between death probe and commit",
   (column) => {
-    const { to, store, source, options, racing } = fixture();
+    const { to, store, options, racing } = fixture();
     const db = new DatabaseSync(options.databasePath);
     try {
       const payload = JSON.stringify({ version: 1, pid: process.pid, startIdentity: "0" });
       const live = JSON.stringify({ version: 1, ...store.processIdentity() });
       const rows = () =>
         db.prepare("SELECT * FROM managed_update_handoffs ORDER BY install_root").all();
-      for (const admission of ["acquire", "retarget"]) {
-        db.prepare(
-          "INSERT OR REPLACE INTO managed_update_handoffs (install_root, owner, payload_json, updated_at) VALUES (?, ?, ?, ?)",
-        ).run(to, "legacy-owner", payload, 1);
-        let winner: ReturnType<typeof rows> = [];
-        const other = racing(() => {
-          db.prepare(`UPDATE managed_update_handoffs SET ${column} = ? WHERE install_root = ?`).run(
-            column === "owner" ? "rebound-owner" : column === "payload_json" ? live : 2,
-            to,
-          );
-          winner = rows();
-        });
-        expect(() =>
-          admission === "acquire"
-            ? other.acquire(to, "fresh-owner", { kind: "update" })
-            : other.retarget(source, to, action),
-        ).toThrow("incompatible");
-        expect(rows()).toEqual(winner);
-      }
+      db.prepare(
+        "INSERT OR REPLACE INTO managed_update_handoffs (install_root, owner, payload_json, updated_at) VALUES (?, ?, ?, ?)",
+      ).run(to, "legacy-owner", payload, 1);
+      let winner: ReturnType<typeof rows> = [];
+      const other = racing(() => {
+        db.prepare(`UPDATE managed_update_handoffs SET ${column} = ? WHERE install_root = ?`).run(
+          column === "owner" ? "rebound-owner" : column === "payload_json" ? live : 2,
+          to,
+        );
+        winner = rows();
+      });
+      expect(() => other.acquire(to, "fresh-owner", { kind: "update" })).toThrow("incompatible");
+      expect(rows()).toEqual(winner);
     } finally {
       db.close();
     }
   },
 );
 
-unix("keeps the dead legacy destination when its retarget source changes", () => {
-  const { to, store, source, options, racing } = fixture();
-  const db = new DatabaseSync(options.databasePath);
-  try {
-    db.prepare(
-      "INSERT INTO managed_update_handoffs (install_root, owner, payload_json, updated_at) VALUES (?, ?, ?, ?)",
-    ).run(
-      to,
-      "legacy-owner",
-      JSON.stringify({ version: 1, pid: process.pid, startIdentity: "0" }),
-      1,
-    );
-    const destination = () =>
-      db.prepare("SELECT * FROM managed_update_handoffs WHERE install_root = ?").get(to);
-    const before = destination();
-    const other = racing(() => {
-      expect(store.bind(source, process.pid)).not.toBeNull();
-    });
-    expect(() => other.retarget(source, to, action)).toThrow("source changed");
-    expect(destination()).toEqual(before);
-  } finally {
-    db.close();
-  }
-});
-
 unix("does not reclaim a legacy process when its creation identity is unknown", async () => {
-  const { to, store, source, options } = fixture();
+  const { to, store, options } = fixture();
   const child = spawn(process.execPath, ["-e", "process.stdin.resume()"], {
     stdio: ["pipe", "ignore", "ignore"],
   });
@@ -539,7 +440,6 @@ unix("does not reclaim a legacy process when its creation identity is unknown", 
       .mockImplementation((pid, ...args) => (pid === child.pid ? null : readStart(pid, ...args)));
     try {
       expect(() => store.acquire(to, "fresh-owner", { kind: "update" })).toThrow("incompatible");
-      expect(() => store.retarget(source, to, action)).toThrow("incompatible");
       expect(rows()).toEqual(before);
     } finally {
       probe.mockRestore();
@@ -554,7 +454,7 @@ unix("does not reclaim a legacy process when its creation identity is unknown", 
 unix(
   "keeps a closed v2 generation occupied while its actors live and preserves late revoke",
   async () => {
-    const { to, store, source, stagedOptions } = fixture();
+    const { to, store, stagedOptions } = fixture();
     const acquired = store.acquire(to, "closing-owner", {
       kind: "triage",
       phase: "reserved",
@@ -586,18 +486,17 @@ unix(
         child.once("message", resolve);
       });
       const bound = store.bind(acquired.lease, child.pid!);
-      const running = bound && store.activate(bound);
-      if (!running) {
-        throw new Error("activation refused");
+      const closing = bound && store.settle(bound, "closing");
+      if (!closing) {
+        throw new Error("closing refused");
       }
-      child.send(running);
+      child.send(closing);
       const closed = await completed;
-      expect(store.settle(running, "closing")).toEqual(closed);
+      expect(store.settle(closing, "closing")).toEqual(closed);
       expect(store.acquire(to, "contender", { kind: "update" })).toEqual({
         kind: "busy",
         owner: closed.owner,
       });
-      expect(store.retarget(source, to, action)).toEqual({ kind: "busy", owner: closed.owner });
       expect(store.read(to)).toEqual({ kind: "current", lease: closed });
       child.stdin!.end();
       await exited;

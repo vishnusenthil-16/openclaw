@@ -486,7 +486,7 @@ export async function discoverGatewayBeacons(
   const platform = opts.platform ?? process.platform;
   const run = opts.run ?? runCommandWithTimeout;
   const wideAreaDomain = resolveWideAreaDiscoveryDomain({ configDomain: opts.wideAreaDomain });
-  const domainsRaw = Array.isArray(opts.domains) ? opts.domains : [];
+  const domainsRaw = opts.domains ?? [];
   const defaultDomains = ["local.", ...(wideAreaDomain ? [wideAreaDomain] : [])];
   const domains = normalizeStringEntries(domainsRaw.length > 0 ? domainsRaw : defaultDomains).map(
     (d) => (d.endsWith(".") ? d : `${d}.`),

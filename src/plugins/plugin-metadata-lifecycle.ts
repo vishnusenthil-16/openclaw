@@ -5,6 +5,7 @@ import {
   clearCurrentPluginMetadataSnapshot,
   isGatewayPluginMetadataSnapshotActive,
 } from "./current-plugin-metadata-state.js";
+import { summarizePluginRetirementResults } from "./host-hook-cleanup-result.js";
 import type {
   PluginHostCleanupResult,
   PluginHostRegistryRetirement,
@@ -113,21 +114,7 @@ export function retainGatewayPluginMetadata(
         return completed;
       }),
     ]);
-    const failures = results.flatMap((result) =>
-      result.status === "rejected" ? [result.reason] : [],
-    );
-    if (failures.length) {
-      throw new AggregateError(failures, "Gateway plugin metadata cleanup failed");
-    }
-    const completed: PluginHostCleanupResult[] = results.flatMap((result) =>
-      result.status === "fulfilled" && result.value ? [result.value] : [],
-    );
-    const deferredPluginIds = completed.flatMap((result) => result.deferredPluginIds ?? []);
-    return {
-      cleanupCount: completed.reduce((count, result) => count + result.cleanupCount, 0),
-      failures: completed.flatMap((result) => result.failures),
-      ...(deferredPluginIds.length ? { deferredPluginIds } : {}),
-    };
+    return summarizePluginRetirementResults(results, "Gateway plugin metadata cleanup failed");
   };
   const beginClose = (): void | Promise<void> => {
     owner.phase = "closing";

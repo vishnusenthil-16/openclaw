@@ -214,7 +214,7 @@ export async function getPluginSessionExtensionState(params: {
     agentId: params.agentId,
   });
   const value = entry?.pluginExtensions?.[pluginId] as Record<string, PluginJsonValue> | undefined;
-  return value ? structuredClone(value) : undefined;
+  return value;
 }
 
 export async function patchPluginSessionExtension(params: {
@@ -268,7 +268,7 @@ export async function patchPluginSessionExtension(params: {
       if (params.unset === true) {
         delete pluginState[namespace];
       } else {
-        pluginState[namespace] = structuredClone(nextPluginValue);
+        pluginState[namespace] = nextPluginValue;
       }
       if (Object.keys(pluginState).length > 0) {
         pluginExtensions[pluginId] = pluginState;
@@ -390,5 +390,5 @@ function projectSessionExtensionValue(params: {
     return undefined;
   }
   // Both plugin projections and persisted state must satisfy the same size and shape bounds.
-  return isPluginJsonValue(projected) ? structuredClone(projected) : undefined;
+  return isPluginJsonValue(projected) ? projected : undefined;
 }

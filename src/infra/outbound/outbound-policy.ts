@@ -252,7 +252,7 @@ export async function buildCrossContextDecoration(params: {
       cfg: params.cfg,
       channel: params.channel,
       targetId: currentTarget,
-      accountId: params.accountId ?? undefined,
+      accountId: params.accountId,
     })) ?? currentTarget;
   // Don't force group formatting here; currentChannelId can be a DM or a group.
   const originLabel = formatTargetDisplay({

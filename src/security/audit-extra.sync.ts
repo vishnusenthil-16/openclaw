@@ -25,6 +25,7 @@ import {
 } from "../gateway/node-command-policy.js";
 import { listEffectiveGroupRouteBindings } from "../routing/resolve-route.js";
 import { levenshteinDistance } from "../shared/levenshtein-distance.js";
+import { listAuditAgentToolContexts } from "./audit-agent-roster.js";
 import type { SecurityAuditFinding } from "./audit.types.js";
 import { GATEWAY_CONTROL_PLANE_TOOLS } from "./dangerous-tools.js";
 
@@ -186,12 +187,38 @@ function suggestKnownNodeCommands(needle: string, known: Set<string>): string[] 
     .map((r) => r.cmd);
 }
 
-function listOpenInboundPolicies(cfg: OpenClawConfig): string[] {
-  const out: string[] = [];
+function* channelPolicySections(cfg: OpenClawConfig, inheritAccountConfig = false) {
   const channels = cfg.channels as Record<string, unknown> | undefined;
   if (!channels || typeof channels !== "object") {
-    return out;
+    return;
   }
+  for (const [channelId, value] of Object.entries(channels)) {
+    if (!value || typeof value !== "object") {
+      continue;
+    }
+    const section = value as Record<string, unknown>;
+    yield { section, path: `channels.${channelId}` };
+    const accounts = section.accounts;
+    if (!accounts || typeof accounts !== "object") {
+      continue;
+    }
+    for (const [accountId, accountValue] of Object.entries(accounts)) {
+      if (!accountValue || typeof accountValue !== "object") {
+        continue;
+      }
+      const accountConfig = accountValue as Record<string, unknown>;
+      yield {
+        section: inheritAccountConfig
+          ? mergeAccountConfig({ channelConfig: section, accountConfig })
+          : accountConfig,
+        path: `channels.${channelId}.accounts.${accountId}`,
+      };
+    }
+  }
+}
+
+function listOpenInboundPolicies(cfg: OpenClawConfig): string[] {
+  const out: string[] = [];
 
   const inspectSection = (section: Record<string, unknown>, basePath: string) => {
     if (section.groupPolicy === "open") {
@@ -206,24 +233,10 @@ function listOpenInboundPolicies(cfg: OpenClawConfig): string[] {
     }
   };
 
-  for (const [channelId, value] of Object.entries(channels)) {
-    if (!value || typeof value !== "object") {
-      continue;
-    }
-    const section = value as Record<string, unknown>;
+  for (const { section, path } of channelPolicySections(cfg)) {
     // Root policy can govern an implicit/default env-backed account. Named account overrides
     // do not prove this scope is inactive, so audit it independently.
-    inspectSection(section, `channels.${channelId}`);
-    const accounts = section.accounts;
-    if (accounts && typeof accounts === "object") {
-      for (const [accountId, accountVal] of Object.entries(accounts)) {
-        if (!accountVal || typeof accountVal !== "object") {
-          continue;
-        }
-        const acc = accountVal as Record<string, unknown>;
-        inspectSection(acc, `channels.${channelId}.accounts.${accountId}`);
-      }
-    }
+    inspectSection(section, path);
   }
   return out;
 }
@@ -238,10 +251,6 @@ function hasConfiguredGroupTargets(section: Record<string, unknown>): boolean {
 
 export function listPotentialMultiUserSignals(cfg: OpenClawConfig): string[] {
   const out = new Set<string>();
-  const channels = cfg.channels as Record<string, unknown> | undefined;
-  if (!channels || typeof channels !== "object") {
-    return [];
-  }
 
   const inspectSection = (section: Record<string, unknown>, basePath: string) => {
     const groupPolicy = typeof section.groupPolicy === "string" ? section.groupPolicy : null;
@@ -280,52 +289,11 @@ export function listPotentialMultiUserSignals(cfg: OpenClawConfig): string[] {
     }
   };
 
-  for (const [channelId, value] of Object.entries(channels)) {
-    if (!value || typeof value !== "object") {
-      continue;
-    }
-    const section = value as Record<string, unknown>;
-    inspectSection(section, `channels.${channelId}`);
-    const accounts = section.accounts;
-    if (!accounts || typeof accounts !== "object") {
-      continue;
-    }
-    for (const [accountId, accountValue] of Object.entries(accounts)) {
-      if (!accountValue || typeof accountValue !== "object") {
-        continue;
-      }
-      inspectSection(
-        mergeAccountConfig({
-          channelConfig: section,
-          accountConfig: accountValue as Record<string, unknown>,
-        }),
-        `channels.${channelId}.accounts.${accountId}`,
-      );
-    }
+  for (const { section, path } of channelPolicySections(cfg, true)) {
+    inspectSection(section, path);
   }
 
   return Array.from(out);
-}
-
-type AuditAgentToolContext = {
-  label: string;
-  agentId?: string;
-  tools?: AgentToolsConfig;
-};
-
-function listAuditAgentToolContexts(cfg: OpenClawConfig): AuditAgentToolContext[] {
-  const contexts: AuditAgentToolContext[] = [{ label: "agents.defaults" }];
-  for (const agent of listAgentEntries(cfg)) {
-    if (!agent || typeof agent !== "object" || typeof agent.id !== "string") {
-      continue;
-    }
-    contexts.push({
-      label: `agents.entries.${agent.id}`,
-      agentId: agent.id,
-      tools: agent.tools,
-    });
-  }
-  return contexts;
 }
 
 function collectRiskyToolExposureContexts(cfg: OpenClawConfig): {

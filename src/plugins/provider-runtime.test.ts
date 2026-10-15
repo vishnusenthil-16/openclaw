@@ -1610,22 +1610,19 @@ describe("provider-runtime", () => {
   });
 
   it.each([
-    { result: "billing", expected: "billing", laterCalls: 0 },
-    { result: "unsupported-reason", expected: undefined, laterCalls: 0 },
-    { result: {}, expected: undefined, laterCalls: 0 },
+    { result: "billing" as const, expected: "billing", laterCalls: 0 },
     { result: null, expected: "overloaded", laterCalls: 1 },
   ])(
-    "normalizes external failover result $result without changing hook precedence",
+    "preserves failover hook precedence for result $result",
     ({ result, expected, laterCalls }) => {
       const later = vi.fn(() => "overloaded" as const);
       registerLoadedProviders([
-        // External JavaScript plugins are not constrained by the TypeScript return type.
         {
           id: "first",
           label: "First",
           auth: [],
           classifyFailoverReason: () => result,
-        } as ProviderPlugin,
+        },
         { id: "second", label: "Second", auth: [], classifyFailoverReason: later },
       ]);
       expect(

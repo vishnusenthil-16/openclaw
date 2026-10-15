@@ -1038,52 +1038,49 @@ function dispatchDiagnosticEvent(
 
   state.dispatchDepth += 1;
   try {
-    if (!options.trustedListenersOnly) {
-      for (const [listener, interest] of state.listeners) {
+    let eventForListeners: DiagnosticEventPayload | undefined;
+    let metadataForListeners: DiagnosticEventMetadata | undefined;
+    let privateDataForListeners: DiagnosticEventPrivateData | undefined;
+    let otelPrivateDataForListeners: DiagnosticEventPrivateData | undefined;
+    const dispatch = (listeners: typeof state.trustedListeners, trusted: boolean) => {
+      for (const [listener, interest] of listeners) {
         if (!isInternalDiagnosticEventInterested(interest, enriched.type, metadata.trusted)) {
           continue;
         }
         try {
-          listener(
-            cloneDiagnosticValueForListener(enriched),
-            createDiagnosticMetadataForListener(metadata),
-          );
+          // Listeners borrow frozen facts; isolate from the producer once, not per subscriber.
+          eventForListeners ??= cloneDiagnosticValueForListener(enriched);
+          metadataForListeners ??= createDiagnosticMetadataForListener(metadata);
+          let privateDataForListener = EMPTY_DIAGNOSTIC_PRIVATE_DATA;
+          if (trusted && interest?.includePrivateData !== false) {
+            if (isTrustedOtelDiagnosticListener(listener)) {
+              if (!otelPrivateDataForListeners) {
+                const cloned = structuredClone(privateData ?? {});
+                Reflect.deleteProperty(cloned, "hostPluginId");
+                if (options.hostPluginId) {
+                  Object.assign(cloned, { hostPluginId: options.hostPluginId });
+                }
+                otelPrivateDataForListeners = deepFreezeDiagnosticValue(cloned);
+              }
+              privateDataForListener = otelPrivateDataForListeners;
+            } else if (privateData) {
+              privateDataForListener = privateDataForListeners ??=
+                cloneDiagnosticValueForListener(privateData);
+            }
+          }
+          listener(eventForListeners, metadataForListeners, privateDataForListener);
         } catch (err) {
           const errorMessage = err instanceof Error ? (err.stack ?? err.message) : String(err);
           console.error(
-            `[diagnostic-events] listener error type=${enriched.type} seq=${enriched.seq}: ${errorMessage}`,
+            `[diagnostic-events] ${trusted ? "trusted " : ""}listener error type=${enriched.type} seq=${enriched.seq}: ${errorMessage}`,
           );
         }
       }
+    };
+    if (!options.trustedListenersOnly) {
+      dispatch(state.listeners, false);
     }
-    for (const [listener, interest] of state.trustedListeners) {
-      if (!isInternalDiagnosticEventInterested(interest, enriched.type, metadata.trusted)) {
-        continue;
-      }
-      try {
-        const eventForListener = cloneDiagnosticValueForListener(enriched);
-        const metadataForListener = createDiagnosticMetadataForListener(metadata);
-        const otel = isTrustedOtelDiagnosticListener(listener);
-        let privateDataForListener = EMPTY_DIAGNOSTIC_PRIVATE_DATA;
-        if (interest?.includePrivateData !== false && (privateData || otel)) {
-          // Retain the host-owned transport for independently updated OTel installs.
-          const cloned = structuredClone(privateData ?? {});
-          if (otel) {
-            Reflect.deleteProperty(cloned, "hostPluginId");
-            if (options.hostPluginId) {
-              Object.assign(cloned, { hostPluginId: options.hostPluginId });
-            }
-          }
-          privateDataForListener = deepFreezeDiagnosticValue(cloned);
-        }
-        listener(eventForListener, metadataForListener, privateDataForListener);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? (err.stack ?? err.message) : String(err);
-        console.error(
-          `[diagnostic-events] trusted listener error type=${enriched.type} seq=${enriched.seq}: ${errorMessage}`,
-        );
-      }
-    }
+    dispatch(state.trustedListeners, true);
   } finally {
     state.dispatchDepth -= 1;
   }

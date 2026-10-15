@@ -18,9 +18,8 @@ export function resolveTimezone(value: string): string | undefined {
 
 /** Build a stable YYYY-MM-DD formatter for instants in one IANA timezone. */
 export function createTimeZoneDayKeyFormatter(timeZone: string): (date: Date) => string {
-  // Only explicit zones are retained; default zones capture the current host state.
   const formatter =
-    typeof timeZone === "string" && timeZoneDayKeyFormatter?.timeZone === timeZone
+    timeZoneDayKeyFormatter?.timeZone === timeZone
       ? timeZoneDayKeyFormatter.formatter
       : new Intl.DateTimeFormat("en-US-u-ca-iso8601-nu-latn", {
           timeZone,
@@ -28,9 +27,7 @@ export function createTimeZoneDayKeyFormatter(timeZone: string): (date: Date) =>
           month: "2-digit",
           day: "2-digit",
         });
-  if (typeof timeZone === "string") {
-    timeZoneDayKeyFormatter = { timeZone, formatter };
-  }
+  timeZoneDayKeyFormatter = { timeZone, formatter };
   return (date) => {
     const parts = formatter.formatToParts(date);
     const pick = (type: "year" | "month" | "day") =>

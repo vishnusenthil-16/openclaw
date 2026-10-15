@@ -357,22 +357,23 @@ export function insertStoredDeviceIdentityIfAbsent(
   return runOpenClawStateWriteTransaction(
     ({ db }) => {
       const existing = readStoredIdentityFromDatabase({ db }, resolved.identityKey);
-      if (!existing) {
-        // A native importer can claim retired key material while generation runs.
-        assertNoPendingLegacyIdentity({
-          ...options,
-          path: resolved.databasePath,
-          identityKey: resolved.identityKey,
-        });
-        const kysely = getNodeSqliteKysely<DeviceIdentityDatabase>(db);
-        executeSqliteQuerySync(
-          db,
-          kysely
-            .insertInto("device_identities")
-            .values(storedIdentityToRow(resolved.identityKey, candidate))
-            .onConflict((conflict) => conflict.column("identity_key").doNothing()),
-        );
+      if (existing) {
+        return existing;
       }
+      // A native importer can claim retired key material while generation runs.
+      assertNoPendingLegacyIdentity({
+        ...options,
+        path: resolved.databasePath,
+        identityKey: resolved.identityKey,
+      });
+      const kysely = getNodeSqliteKysely<DeviceIdentityDatabase>(db);
+      executeSqliteQuerySync(
+        db,
+        kysely
+          .insertInto("device_identities")
+          .values(storedIdentityToRow(resolved.identityKey, candidate))
+          .onConflict((conflict) => conflict.column("identity_key").doNothing()),
+      );
       const authoritative = readStoredIdentityFromDatabase({ db }, resolved.identityKey);
       if (!authoritative) {
         throw new DeviceIdentityStorageError(

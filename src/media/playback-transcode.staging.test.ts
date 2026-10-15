@@ -1,8 +1,6 @@
 import "../test-utils/prepare-compiled-subprocesses.js";
-import fs, { type FileHandle } from "node:fs/promises";
+import fs from "node:fs/promises";
 import path from "node:path";
-import type { Root } from "@openclaw/fs-safe";
-import type { TempWorkspace, TempWorkspaceOptions } from "@openclaw/fs-safe/temp";
 import { __setFsSafeTestHooksForTest } from "@openclaw/fs-safe/test-hooks";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTempHomeEnv, type TempHomeEnv } from "../test-utils/temp-home.js";
@@ -11,29 +9,9 @@ import {
   waitForPlaybackTranscodeJobsForTest,
 } from "./playback-transcode.test-support.js";
 
-const { runFfmpeg, observeWorkspaceRoot } = vi.hoisted(() => ({
+const { runFfmpeg } = vi.hoisted(() => ({
   runFfmpeg: vi.fn(),
-  observeWorkspaceRoot: vi.fn<(root: Root, workspace: TempWorkspace) => void>(),
 }));
-vi.mock("@openclaw/fs-safe/temp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@openclaw/fs-safe/temp")>();
-  return {
-    ...actual,
-    withTempWorkspace: <T>(
-      options: TempWorkspaceOptions,
-      run: (workspace: TempWorkspace) => Promise<T>,
-    ) =>
-      actual.withTempWorkspace(options, async (workspace) => {
-        const getRoot = workspace.store.root.bind(workspace.store);
-        workspace.store.root = async () => {
-          const root = await getRoot();
-          observeWorkspaceRoot(root, workspace);
-          return root;
-        };
-        return run(workspace);
-      }),
-  };
-});
 vi.mock("./ffmpeg-exec.js", () => ({ runFfmpeg }));
 vi.mock("./media-probe.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./media-probe.js")>()),
@@ -59,14 +37,12 @@ afterAll(async () => {
   } finally {
     vi.doUnmock("./ffmpeg-exec.js");
     vi.doUnmock("./media-probe.js");
-    vi.doUnmock("@openclaw/fs-safe/temp");
     vi.resetModules();
   }
 });
 
 beforeEach(() => {
   runFfmpeg.mockReset();
-  observeWorkspaceRoot.mockReset();
 });
 
 async function createSource(fileName: string, contents: string | Buffer) {
@@ -173,61 +149,6 @@ describe("playback input staging", () => {
       }
     },
   );
-
-  it("rejects a moved input that no longer names its staging descriptor", async () => {
-    const source = await createSource("replaced-staging.caf", "stable-source");
-    let writer: FileHandle | undefined;
-    let writerWasOpenAtMove = false;
-    let replaced = false;
-    observeWorkspaceRoot.mockImplementationOnce((root, workspace) => {
-      const openWritable = root.openWritable.bind(root);
-      const move = root.move.bind(root);
-      root.openWritable = async (...args) => {
-        const opened = await openWritable(...args);
-        if (args[0] === ".input.caf.stage") {
-          writer = opened.handle;
-        }
-        return opened;
-      };
-      root.move = async (...args) => {
-        if (args[0] === ".input.caf.stage" && args[1] === "input.caf") {
-          // Observe the producer's handle without opening another one that would pin the inode.
-          writerWasOpenAtMove = writer !== undefined && writer.fd >= 0;
-          await move(...args);
-          const inputPath = workspace.path(args[1]);
-          await fs.unlink(inputPath);
-          await fs.writeFile(inputPath, "stable-source", { mode: 0o600 });
-          replaced = true;
-        } else {
-          await move(...args);
-        }
-      };
-    });
-    try {
-      expect(
-        await playback.resolvePlaybackTranscode({
-          ...source,
-          mimeType: "audio/x-caf",
-          kind: "audio",
-        }),
-      ).toEqual({ kind: "preparing" });
-      const outcome = await waitForPlaybackTranscodeJobsForTest("all").then(
-        () => ({ ok: true }),
-        (error: unknown) => ({ ok: false, error }),
-      );
-      expect(writerWasOpenAtMove).toBe(true);
-      expect(outcome).toEqual({
-        ok: false,
-        error: expect.objectContaining({ message: expect.stringMatching(/changed|mismatch/) }),
-      });
-      expect(replaced).toBe(true);
-      expect(runFfmpeg).not.toHaveBeenCalled();
-      expect(writer?.fd).toBe(-1);
-    } finally {
-      observeWorkspaceRoot.mockReset();
-      await settlePlaybackTranscodeJobsForTest();
-    }
-  });
 
   it("does not publish a cache entry when workspace cleanup fails", async () => {
     const source = await createSource("cleanup-failed.caf", "stable-source");

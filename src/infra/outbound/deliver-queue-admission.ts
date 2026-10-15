@@ -224,11 +224,7 @@ export async function stageAndEnqueueOutboundDelivery(
     } catch (cleanupError) {
       errors.push(cleanupError);
     }
-    try {
-      await releaseSpoolArtifacts(staged.artifacts, stateDir);
-    } catch (cleanupError) {
-      errors.push(cleanupError);
-    }
+    await releaseSpoolArtifacts(staged.artifacts, stateDir);
     throwSqliteLifecycleErrors(errors, "Delivery queue admission and media cleanup failed");
     throw err;
   }

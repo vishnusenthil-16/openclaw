@@ -28,9 +28,7 @@ export async function tryListenOnPort(params: ListenOnPortParams): Promise<numbe
   if (params.host) {
     listenOptions.host = params.host;
   }
-  if (typeof params.exclusive === "boolean") {
-    listenOptions.exclusive = params.exclusive;
-  }
+  listenOptions.exclusive = params.exclusive;
   if (params.signal) {
     listenOptions.signal = params.signal;
   }

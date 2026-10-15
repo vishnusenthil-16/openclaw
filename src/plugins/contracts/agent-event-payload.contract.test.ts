@@ -32,7 +32,7 @@ describe("agent event subscription payloads", () => {
       { phases, payload: "metadata" as const },
     ]),
   )(
-    "filters event phases before cloning with phases=$phases and payload=$payload",
+    "filters event phases before delivery with phases=$phases and payload=$payload",
     async ({ phases, payload }) => {
       const handle = vi.fn();
       const { config, registry } = createPluginRegistryFixture();
@@ -68,14 +68,14 @@ describe("agent event subscription payloads", () => {
         });
         const delivered = !filtered || phase === "start";
         expect(handle).toHaveBeenCalledTimes(delivered ? 1 : 0);
-        expect(payloadReads).toBe(delivered && payload !== "metadata" ? 1 : 0);
+        expect(payloadReads).toBe(0);
       }
       await waitForPluginEventHandlers();
     },
   );
 
   it.each([undefined, "full", "metadata"] as const)(
-    "delivers an isolated event snapshot with payload=%s",
+    "borrows full events and projects metadata with payload=%s",
     async (payload) => {
       const handle =
         vi.fn<Parameters<OpenClawPluginApi["registerAgentEventSubscription"]>[0]["handle"]>();
@@ -133,28 +133,14 @@ describe("agent event subscription payloads", () => {
       });
       expect(handle).toHaveBeenCalledTimes(1);
       const delivered = handle.mock.calls[0]![0];
-      expect(delivered).toEqual({
-        ...event,
-        data:
-          payload === "metadata"
-            ? primitives
-            : {
-                ...primitives,
-                long: "a".repeat(257),
-                nested: { text: "tool output" },
-                array: [1, 2],
-                absent: undefined,
-                result: { text: "getter output" },
-              },
-      });
-      expect(payloadReads).toBe(payload === "metadata" ? 0 : 1);
-      expect(delivered === event).toBe(false);
-      expect(delivered.data === data).toBe(false);
-      delivered.data.phase = "changed";
-      expect(data.phase).toBe("result");
-      if (payload !== "metadata") {
-        expect(delivered.data.nested === data.nested).toBe(false);
+      if (payload === "metadata") {
+        expect(delivered).toEqual({ ...event, data: primitives });
+        expect(delivered.data === data).toBe(false);
+      } else {
+        expect(delivered).toBe(event);
+        expect(delivered.data).toBe(data);
       }
+      expect(payloadReads).toBe(0);
       await waitForPluginEventHandlers();
     },
   );

@@ -236,8 +236,8 @@ export async function applyMessageCrossContextMarker(params: {
     channel: params.channel,
     target: params.target,
     toolContext: params.toolContext,
-    accountId: params.accountId ?? undefined,
-    agentId: params.agentId ?? undefined,
+    accountId: params.accountId,
+    agentId: params.agentId,
   });
   if (!decoration) {
     return params.message;
@@ -486,7 +486,7 @@ export async function executeMessagePoll(ctx: ResolvedActionContext): Promise<Me
         onPlatformSendDispatch: input.onPlatformSendDispatch,
         assertDirectAdapterHandoff: input.assertDirectAdapterHandoff,
       },
-      silent: silent ?? undefined,
+      silent: silent,
     },
     resolveCorePoll: () => {
       const question = readToolStringParam(params, "pollQuestion", {
@@ -511,8 +511,8 @@ export async function executeMessagePoll(ctx: ResolvedActionContext): Promise<Me
         content,
         options,
         maxSelections: resolvePollMaxSelections(options.length, allowMultiselect),
-        durationHours: durationHours ?? undefined,
-        threadId: resolvedThreadId ?? undefined,
+        durationHours: durationHours,
+        threadId: resolvedThreadId,
       };
     },
   });

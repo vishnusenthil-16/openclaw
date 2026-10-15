@@ -434,6 +434,16 @@ describe("normalizePluginDiscoveryResult", () => {
   it.each(cases)("$name", ({ provider, result, expected }) => {
     expectNormalizedDiscoveryResult({ provider, result, expected });
   });
+
+  it("retains the catalog's provider config and model references", () => {
+    const config = makeModelProviderConfig({ models: [makeModel("demo")] });
+    const normalized = normalizePluginDiscoveryResult({
+      provider: makeProvider({ id: "demo" }),
+      result: { provider: config },
+    });
+    expect(normalized.demo).toBe(config);
+    expect(normalized.demo?.models).toBe(config.models);
+  });
 });
 
 describe("runProviderStaticCatalog", () => {

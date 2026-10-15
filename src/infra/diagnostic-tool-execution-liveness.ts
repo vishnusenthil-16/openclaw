@@ -41,7 +41,7 @@ export function createDiagnosticToolExecutionLiveness(signal?: AbortSignal) {
   };
   record.register = (deadline) => {
     const wait = {};
-    if (active && !signal?.aborted && Number.isFinite(deadline)) {
+    if (active && !signal?.aborted) {
       waits.set(wait, deadline);
     }
     return () => {

@@ -266,7 +266,9 @@ async function isQaDockerHealthy(
 async function releaseQaDockerFetchResponse(response: QaDockerFetchResponse | undefined) {
   try {
     await response?.body?.cancel?.();
-  } catch {}
+  } catch {
+    // Response cleanup must not replace the health check's already determined result.
+  }
 }
 
 /** Create Docker command, health-check, and compose helpers for QA harnesses. */

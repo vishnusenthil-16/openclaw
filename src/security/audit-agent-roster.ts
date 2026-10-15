@@ -6,7 +6,33 @@ import {
   tryResolveLegacyCompatibilityAgentId,
 } from "../agents/agent-scope-config.js";
 import type { OpenClawConfig } from "../config/config.js";
+import type { AgentToolsConfig } from "../config/types.tools.js";
 import type { SecurityAuditFinding } from "./audit.types.js";
+
+type AuditAgentToolContext = {
+  label: string;
+  agentId?: string;
+  tools?: AgentToolsConfig;
+};
+
+export function* listAuditAgentToolContexts(
+  cfg: OpenClawConfig,
+  defaultLabel = "agents.defaults",
+  agentLabelSuffix = "",
+): Generator<AuditAgentToolContext> {
+  yield { label: defaultLabel };
+  for (const agent of listAgentEntries(cfg)) {
+    // Raw legacy roster objects are projected without validating their IDs.
+    if (typeof agent.id !== "string") {
+      continue;
+    }
+    yield {
+      label: `agents.entries.${agent.id}${agentLabelSuffix}`,
+      agentId: agent.id,
+      tools: agent.tools,
+    };
+  }
+}
 
 export function collectAgentRosterFindings(cfg: OpenClawConfig): SecurityAuditFinding[] {
   const agents = listAgentEntries(cfg);

@@ -7,7 +7,6 @@ import {
   withExistingOpenClawStateDatabaseArtifactPreservingReadOnly,
   executeExistingOpenClawStateRead,
   withArtifactPreservingStateReads,
-  readCurrentOpenClawStateDatabaseContentVersion,
 } from "../state/openclaw-state-db-readonly.js";
 import { tableExists } from "../state/openclaw-state-db-schema-helpers.js";
 import type { DB } from "../state/openclaw-state-db.generated.js";
@@ -139,26 +138,11 @@ export function createUpdateRunAdmissionReader(
     options,
     openStateSchemaReadAdmission,
   );
-  let previous: { version: string; runs: UpdateRunRecord[] } | undefined;
   return () => {
     const warm = readWarm();
-    if (warm.available) {
-      previous = undefined;
-      return warm.value;
-    }
-    const version = readCurrentOpenClawStateDatabaseContentVersion(options);
-    if (version !== undefined && previous?.version === version) {
-      return structuredClone(previous.runs);
-    }
-    previous = undefined;
-    const runs = listUpdateRuns(query, options, openStateSchemaReadAdmission);
-    if (
-      version !== undefined &&
-      version === readCurrentOpenClawStateDatabaseContentVersion(options)
-    ) {
-      previous = { version, runs: structuredClone(runs) };
-    }
-    return runs;
+    return warm.available
+      ? warm.value
+      : listUpdateRuns(query, options, openStateSchemaReadAdmission);
   };
 }
 

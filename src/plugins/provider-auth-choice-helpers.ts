@@ -244,22 +244,13 @@ export function applyProviderAuthConfigPatch(
 ): OpenClawConfig {
   const providerConfigNormalizer =
     options?.providerConfigNormalizer ?? normalizeProviderConfigForConfigDefaults;
-  const merged = normalizeConfigModelRefsForWrite(
-    mergeConfigPatch(cfg, patch),
-    providerConfigNormalizer,
-  );
-  if (!options?.replaceDefaultModels || !isPlainRecord(patch)) {
-    return merged;
-  }
-
-  const patchModels = (patch.agents as { defaults?: { models?: unknown } } | undefined)?.defaults
-    ?.models;
-  if (!isPlainRecord(patchModels)) {
-    return merged;
-  }
-
-  return normalizeConfigModelRefsForWrite(
-    {
+  let merged = mergeConfigPatch(cfg, patch);
+  const patchModels =
+    options?.replaceDefaultModels && isPlainRecord(patch)
+      ? (patch.agents as { defaults?: { models?: unknown } } | undefined)?.defaults?.models
+      : undefined;
+  if (isPlainRecord(patchModels)) {
+    merged = {
       ...merged,
       agents: {
         ...merged.agents,
@@ -271,9 +262,9 @@ export function applyProviderAuthConfigPatch(
           >["models"],
         },
       },
-    },
-    providerConfigNormalizer,
-  );
+    };
+  }
+  return normalizeConfigModelRefsForWrite(merged, providerConfigNormalizer);
 }
 
 export function restoreAgentsDefaultsModel(

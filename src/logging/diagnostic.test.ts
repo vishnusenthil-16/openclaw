@@ -29,10 +29,7 @@ import {
   markDiagnosticToolStartedForTest,
 } from "./diagnostic-run-activity.test-support.js";
 import type { SessionAttentionClassification } from "./diagnostic-session-attention.js";
-import {
-  requestStuckSessionRecovery,
-  resetDiagnosticSessionRecoveryCoordinatorForTest,
-} from "./diagnostic-session-recovery-coordinator.js";
+import { requestStuckSessionRecovery } from "./diagnostic-session-recovery-coordinator.js";
 import type { StuckSessionRecoveryOutcome } from "./diagnostic-session-recovery.js";
 import {
   diagnosticSessionStates,
@@ -859,48 +856,6 @@ describe("stuck session diagnostics threshold", () => {
     },
   );
 
-  it("deduplicates recovery while pending across unchanged and bumped generations", async () => {
-    const { promise, resolve } = createDeferredCore<StuckSessionRecoveryOutcome>();
-    const recoverStuckSession = vi.fn(() => promise);
-    startEnabledDiagnosticHeartbeat({ recoverStuckSession });
-    logSessionStateChange({ ...session, state: "processing" });
-    markDiagnosticEmbeddedRunStarted(session);
-    logSessionStateChange({ ...session, state: "idle" });
-    try {
-      vi.advanceTimersByTime(59_000);
-      logMessageQueued({ ...session, source: "test" });
-      vi.advanceTimersByTime(1_000);
-      await Promise.resolve();
-      expect(recoverStuckSession).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30_000);
-      expect(recoverStuckSession).toHaveBeenCalledTimes(1);
-      requireMatchingRecord(
-        events,
-        {
-          type: "session.recovery.completed",
-          status: "skipped",
-          outcomeReason: "already_in_flight",
-        },
-        "skipped recovery event",
-      );
-
-      logMessageQueued({ ...session, source: "followup" });
-      vi.advanceTimersByTime(30_000);
-      await Promise.resolve();
-      expect(recoverStuckSession).toHaveBeenCalledTimes(1);
-      expect(events.filter((event) => event.type === "session.recovery.requested")).toHaveLength(1);
-    } finally {
-      resolve({
-        status: "skipped",
-        action: "observe_only",
-        reason: "already_in_flight",
-        ...session,
-      });
-      await Promise.resolve();
-    }
-  });
-
   it("throttles repeated long-running active-work warnings", async () => {
     const recoverStuckSession = vi.fn();
     startEnabledDiagnosticHeartbeat({ recoverStuckSession });
@@ -1347,13 +1302,11 @@ describe("stuck session recovery activity reconciliation", () => {
     resetDiagnosticSessionStateForTest();
     resetDiagnosticRunActivityForTest();
     startDiagnosticRunActivityTracking();
-    resetDiagnosticSessionRecoveryCoordinatorForTest();
   });
 
   afterEach(() => {
     resetDiagnosticSessionStateForTest();
     resetDiagnosticRunActivityForTest();
-    resetDiagnosticSessionRecoveryCoordinatorForTest();
   });
 
   it("clears old same-key owners and their tool/model markers after recovering custom reply work", async () => {

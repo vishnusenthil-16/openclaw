@@ -494,11 +494,10 @@ export async function runInstallPolicy(params: {
 
 function formatDecisionContext(request: InstallPolicyRequest): string {
   const source = request.source ? ` source=${request.source.kind}/${request.source.authority}` : "";
-  const origin = typeof request.origin.type === "string" ? request.origin.type : "unknown";
   return [
     `target=${request.targetType}:${request.targetName}`,
     `request=${request.request.kind}/${request.request.mode}`,
-    `origin=${origin}`,
+    `origin=${request.origin.type}`,
     `pathKind=${request.sourcePathKind}`,
     source.trim(),
   ]

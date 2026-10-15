@@ -1,5 +1,4 @@
 import path from "node:path";
-import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { PluginInstallRecord } from "../config/types.plugins.js";
@@ -128,7 +127,7 @@ export function resolveBundledPluginSources(params: {
       localPath: candidate.rootDir,
       npmSpec,
       version,
-      ...(isRecord(manifest.configSchema) ? { configSchema: manifest.configSchema } : {}),
+      ...(manifest.configSchema ? { configSchema: manifest.configSchema } : {}),
       requiresConfig: pluginConfigSchemaHasRequiredFields(manifest.configSchema),
     });
   }
@@ -141,11 +140,8 @@ export function getProcessBundledPluginSources(): ReadonlyMap<string, BundledPlu
   return resolveBundledPluginSources({});
 }
 
-function pluginConfigSchemaHasRequiredFields(schema: unknown): boolean {
-  if (!isRecord(schema)) {
-    return false;
-  }
-  const required = schema.required;
+function pluginConfigSchemaHasRequiredFields(schema?: Record<string, unknown>): boolean {
+  const required = schema?.required;
   return Array.isArray(required) && required.some((entry) => typeof entry === "string");
 }
 

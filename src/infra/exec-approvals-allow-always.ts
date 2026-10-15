@@ -76,10 +76,7 @@ export function hasExactCommandDurableExecApproval(params: {
   }
   const commandPattern = buildDurableCommandApprovalPattern(normalizedCommand);
   return (params.allowlist ?? []).some(
-    (entry) =>
-      entry.source === "allow-always" &&
-      (entry.pattern === commandPattern ||
-        (typeof entry.commandText === "string" && entry.commandText.trim() === normalizedCommand)),
+    (entry) => entry.source === "allow-always" && entry.pattern === commandPattern,
   );
 }
 

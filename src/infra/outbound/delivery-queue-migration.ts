@@ -267,11 +267,7 @@ async function failInterruptedLegacyPreparation(params: {
   await releaseSpoolArtifacts(
     collectEntrySpoolPaths(params.entry.payloads, params.stateDir),
     params.stateDir,
-  ).catch((error: unknown) => {
-    params.log.warn(
-      `Legacy delivery ${params.entry.id} failed preparation media cleanup failed: ${String(error)}`,
-    );
-  });
+  );
 }
 
 function claimLegacyPreparation(params: {
@@ -384,11 +380,7 @@ async function finalizePreparedMigration(params: {
       await releaseSpoolArtifacts(
         collectEntrySpoolPaths(acceptedPayloads, params.stateDir),
         params.stateDir,
-      ).catch((error: unknown) => {
-        params.log.warn(
-          `Legacy delivery ${params.entry.id} moved but old media cleanup failed: ${String(error)}`,
-        );
-      });
+      );
     }
     return "moved";
   } finally {

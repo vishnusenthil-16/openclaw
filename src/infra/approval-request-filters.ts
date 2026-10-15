@@ -33,7 +33,7 @@ export function matchesApprovalRequestFilters(params: {
   if (params.agentFilter?.length) {
     const explicitAgentId = normalizeOptionalString(params.request.agentId);
     const sessionAgentId = params.fallbackAgentIdFromSessionKey
-      ? (parseAgentSessionKey(params.request.sessionKey)?.agentId ?? undefined)
+      ? parseAgentSessionKey(params.request.sessionKey)?.agentId
       : undefined;
     const agentId = explicitAgentId ?? sessionAgentId;
     if (!agentId || !params.agentFilter.includes(agentId)) {

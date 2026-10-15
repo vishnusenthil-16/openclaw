@@ -23,7 +23,7 @@ async function activateTransferredGateway() {
       throw new Error("managed update parent identity changed during activation");
     }
     if (Date.now() >= params.parentExitDeadlineAt) {
-      try { process.kill(params.parentPid, "SIGKILL"); } catch {}
+      try { process.kill(params.parentPid, "SIGKILL"); } catch { /* Preserve the activation timeout even if this final signal fails. */ }
       throw new Error("managed update parent exit exceeded the activation deadline");
     }
     await sleep(Math.min(25, Math.max(0, params.parentExitDeadlineAt - Date.now())));

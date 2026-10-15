@@ -93,7 +93,7 @@ function formatYyyyMmDd(date: Date): string {
 
 function nextSerial(existingSerial: number | null, now: Date): number {
   const base = Number.parseInt(`${formatYyyyMmDd(now)}01`, 10);
-  if (existingSerial === null || !Number.isFinite(existingSerial)) {
+  if (existingSerial === null) {
     return base;
   }
   // RFC 1982 accepts only advances smaller than half the unsigned serial space.

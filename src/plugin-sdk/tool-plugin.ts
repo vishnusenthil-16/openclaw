@@ -176,9 +176,7 @@ export function defineToolPlugin<TConfigSchema extends TSchema | undefined = und
     EMPTY_TOOL_PLUGIN_CONFIG_SCHEMA) as JsonSchemaObject;
   const pluginConfigSchema = buildJsonPluginConfigSchema(configSchema);
   const normalizedConfigSchema = pluginConfigSchema.jsonSchema ?? configSchema;
-  const tools = [
-    ...definition.tools(createToolPluginToolFactory<ToolPluginConfig<TConfigSchema>>()),
-  ];
+  const tools = definition.tools(createToolPluginToolFactory<ToolPluginConfig<TConfigSchema>>());
   const activation = definition.activation ?? { onStartup: true };
   const metadata: ToolPluginMetadata = {
     id: definition.id,

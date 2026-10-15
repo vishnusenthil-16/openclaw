@@ -205,7 +205,7 @@ async function getDirectoryEntries(params: {
     return await fn({
       cfg: params.cfg,
       accountId: params.accountId ?? undefined,
-      query: params.query ?? undefined,
+      query: params.query,
       limit: undefined,
       runtime,
     });
@@ -364,7 +364,7 @@ export async function lookupDirectoryDisplay(params: {
       (candidate) => normalizeDirectoryEntryId(params.channel, candidate) === normalized,
     );
     if (entry) {
-      return entry.name ?? entry.handle ?? undefined;
+      return entry.name ?? entry.handle;
     }
   }
   return undefined;

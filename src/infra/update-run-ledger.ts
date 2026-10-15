@@ -156,7 +156,8 @@ export function createUpdateRun(
           persistRun(db, previous, options);
         }
       }
-      const admittedRow = encodeRun(recordRecovery(decodeRun(row)), options);
+      const admittedRow =
+        recoveryChanges.length > 0 ? encodeRun(recordRecovery(decodeRun(row)), options) : row;
       executeSqliteQuerySync(
         db,
         getNodeSqliteKysely<LedgerDatabase>(db).insertInto("update_runs").values(admittedRow),
@@ -390,9 +391,10 @@ export function reconcilePackageOwnerRefusal(
         db,
         query.selectAll().orderBy("created_at_ms", "desc").orderBy("run_id", "desc").limit(1),
       );
+      const record = latest ? decodeRun(latest) : undefined;
       if (
-        !latest ||
-        !isDeepStrictEqual(decodeRun(latest), expected) ||
+        !record ||
+        !isDeepStrictEqual(record, expected) ||
         executeSqliteQueryTakeFirstSync(
           db,
           query.select("run_id").where("status", "=", "running").limit(1),
@@ -403,25 +405,19 @@ export function reconcilePackageOwnerRefusal(
       ) {
         return false;
       }
-      mutateRunInTransaction(
-        db,
-        expected.runId,
-        (record) => {
-          record.status = "skipped";
-          record.reason = "unmanaged-package-install";
-          for (const step of record.steps) {
-            if (step.step === "requested") {
-              step.status = "skipped";
-            }
-          }
-          upsertStep(record, {
-            step: "reconcile:acknowledged",
-            status: "completed",
-            endedAtMs: Date.now(),
-          });
-        },
-        options,
-      );
+      record.status = "skipped";
+      record.reason = "unmanaged-package-install";
+      for (const step of record.steps) {
+        if (step.step === "requested") {
+          step.status = "skipped";
+        }
+      }
+      upsertStep(record, {
+        step: "reconcile:acknowledged",
+        status: "completed",
+        endedAtMs: Date.now(),
+      });
+      persistRun(db, record, options);
       return true;
     },
     options,

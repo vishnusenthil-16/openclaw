@@ -43,10 +43,10 @@ function resolveRuntimeBindingCacheId(value: object | undefined): number | undef
   return id;
 }
 
-function buildActivationMetadataHash(params: {
+function resolveActivationMetadata(params: {
   activationSource: PluginActivationConfigSource;
   autoEnabledReasons: Readonly<Record<string, string[]>>;
-}): string {
+}) {
   // Both sides of channels.<id>.enabled steer activation, so an added or flipped
   // flag must miss the cache instead of reusing a registry built without it.
   const sourceChannelEnablement = Object.entries(
@@ -64,23 +64,19 @@ function buildActivationMetadataHash(params: {
   const pluginEntryInputs = Object.entries(params.activationSource.plugins.entries)
     .map(([pluginId, { enabled }]) => [pluginId, enabled] as const)
     .toSorted(([left], [right]) => left.localeCompare(right));
-  const autoEnableReasonEntries = Object.entries(params.autoEnabledReasons)
-    .map(([pluginId, reasons]) => [pluginId, [...reasons]] as const)
-    .toSorted(([left], [right]) => left.localeCompare(right));
+  const autoEnableReasonEntries = Object.entries(params.autoEnabledReasons).toSorted(
+    ([left], [right]) => left.localeCompare(right),
+  );
 
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        enabled: params.activationSource.plugins.enabled,
-        allow: params.activationSource.plugins.allow,
-        deny: params.activationSource.plugins.deny,
-        memorySlot: params.activationSource.plugins.slots.memory,
-        entries: pluginEntryInputs,
-        channelEnablement: sourceChannelEnablement,
-        autoEnabledReasons: autoEnableReasonEntries,
-      }),
-    )
-    .digest("hex");
+  return {
+    enabled: params.activationSource.plugins.enabled,
+    allow: params.activationSource.plugins.allow,
+    deny: params.activationSource.plugins.deny,
+    memorySlot: params.activationSource.plugins.slots.memory,
+    entries: pluginEntryInputs,
+    channelEnablement: sourceChannelEnablement,
+    autoEnabledReasons: autoEnableReasonEntries,
+  };
 }
 
 export function resolveRuntimeSubagentMode(
@@ -278,17 +274,17 @@ export function resolvePluginLoadCacheContext(options: PluginLoadOptions = {}) {
         candidate.packageManifest?.build?.bundledDist,
       ],
     ),
-    activationMetadataKey: buildActivationMetadataHash({
+    activationMetadata: resolveActivationMetadata({
       activationSource,
       autoEnabledReasons: options.autoEnabledReasons ?? {},
     }),
     capabilityCatalogIdentity: options.capabilityCatalog
-      ? JSON.stringify([
+      ? [
           options.capabilityCatalog.family,
           resolveRuntimeBindingCacheId(options.capabilityCatalog.context),
           resolveRuntimeBindingCacheId(getPluginCache()),
           resolveRuntimeBindingCacheId(getPluginRegistryForContext() ?? undefined),
-        ])
+        ]
       : undefined,
     allowProcessHomeSessionCatalogs: options.allowProcessHomeSessionCatalogs !== false,
     onlyPluginIds,
@@ -300,7 +296,7 @@ export function resolvePluginLoadCacheContext(options: PluginLoadOptions = {}) {
     loadModules: options.loadModules !== false,
     toolDiscovery: options.toolDiscovery === true,
     runtimeSubagentMode,
-    runtimeBindingIdentity: JSON.stringify({
+    runtimeBindingIdentity: {
       capabilityCatalogContext: resolveRuntimeBindingCacheId(options.capabilityCatalogContext),
       modelAuth: resolveRuntimeBindingCacheId(options.runtimeOptions?.modelAuth),
       modelConfig: resolveRuntimeBindingCacheId(options.runtimeOptions?.modelConfig),
@@ -310,7 +306,7 @@ export function resolvePluginLoadCacheContext(options: PluginLoadOptions = {}) {
       borrowedGatewayRuntime: shouldActivate
         ? undefined
         : resolveRuntimeBindingCacheId(borrowedGatewayRuntime),
-    }),
+    },
     pluginSdkResolution: options.pluginSdkResolution ?? "auto",
     coreGatewayMethodNames,
     activate: shouldActivate,

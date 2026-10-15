@@ -53,7 +53,7 @@ export function removePathPrepend(
 
 /** Applies configured PATH prepends in-place, preserving Windows PATH key casing. */
 export function applyPathPrepend(env: Record<string, string>, prepend: string[] | undefined) {
-  if (!Array.isArray(prepend) || prepend.length === 0) {
+  if (!prepend?.length) {
     return;
   }
   // On Windows the PATH key may be stored as `Path` (case-insensitive env vars).

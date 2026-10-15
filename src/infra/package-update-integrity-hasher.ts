@@ -64,7 +64,7 @@ function hash(job) {
     }
     return { digest: digest.digest("hex") };
   } finally {
-    try { fs.closeSync(fd); } catch {}
+    try { fs.closeSync(fd); } catch { /* Read-only cleanup must not replace the hash result or read error. */ }
   }
 }
 parentPort.on("message", jobs => {
@@ -120,7 +120,9 @@ export function createPackageFileHasher(fallback: PackageFileHasher["hash"]): Pa
       }
       slot.worker.unref();
     } else {
-      void slot.worker.terminate().catch(() => {});
+      void slot.worker.terminate().catch(() => {
+        /* The exit handler owns outstanding job reconciliation. */
+      });
     }
   }
 

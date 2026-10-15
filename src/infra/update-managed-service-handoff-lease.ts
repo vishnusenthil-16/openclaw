@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { DatabaseSync as HandoffDatabase } from "node:sqlite";
@@ -48,7 +47,6 @@ import { assertNoRetainedSourceBorrower } from "./update-managed-service-handoff
 import {
   createManagedHandoffLeaseRows,
   managedHandoffLeaseRow,
-  managedHandoffLeaseText as text,
   triageFailureSchema,
 } from "./update-managed-service-handoff-rows.js";
 import {
@@ -173,7 +171,6 @@ function createLeaseStore(
     root: string,
     owner: string,
     payload: string,
-    source?: ManagedHandoffLease,
     legacyParent?: BorrowedLegacyHandoffParent,
     originalParent?: ManagedHandoffParent,
   ): LeaseAcquisition {
@@ -203,12 +200,6 @@ function createLeaseStore(
         }
         if (destination && !originalAllowsMutation(destination, db)) {
           return { kind: "busy", owner: destination.owner };
-        }
-        if (source && !sameRow(managedHandoffLeaseRow(source), row(db, source.key))) {
-          throw new Error("managed triage source changed during admission");
-        }
-        if (source && (!mutationCurrent(source, db) || hasUnsettledChildren(source, db))) {
-          return { kind: "busy", owner: source.owner };
         }
         const childMarker = root.indexOf("/.openclaw-update-child-");
         if (childMarker >= 0) {
@@ -253,28 +244,16 @@ function createLeaseStore(
         if (observed) {
           deleteRow(db, root, observed);
         }
-        const updatedAt = Math.max(Date.now(), (source?.updatedAt ?? 0) + 1);
-        if (source) {
-          if (
-            !updateRow(db, source, {
-              install_root: root,
-              payload_json: payload,
-              updated_at: updatedAt,
-            })
-          ) {
-            throw new Error("managed triage source changed during transfer");
-          }
-        } else {
-          executeSqliteQuerySync(
-            db,
-            leaseQueries(db).insertInto("managed_update_handoffs").values({
-              install_root: root,
-              owner,
-              payload_json: payload,
-              updated_at: updatedAt,
-            }),
-          );
-        }
+        const updatedAt = Math.max(Date.now(), 1);
+        executeSqliteQuerySync(
+          db,
+          leaseQueries(db).insertInto("managed_update_handoffs").values({
+            install_root: root,
+            owner,
+            payload_json: payload,
+            updated_at: updatedAt,
+          }),
+        );
         return {
           kind: "acquired",
           lease: handle(root, { owner, payload_json: payload, updated_at: updatedAt }),
@@ -338,7 +317,7 @@ function createLeaseStore(
     );
   }
   const cas: ManagedHandoffLeaseTransition = (lease, action, executor, recovery) => {
-    // Ordinary bind/retarget/triage transitions cannot erase native custody.
+    // Ordinary binding transitions cannot erase native custody.
     if (
       lease.version === 3 ||
       lease.version === 4 ||
@@ -458,59 +437,6 @@ function createLeaseStore(
         });
       }),
     );
-  }
-  function retarget(
-    lease: ManagedHandoffLease,
-    root: string,
-    action: ManagedHandoffLeaseAction,
-  ): LeaseAcquisition | null {
-    if (
-      lease.version !== 2 ||
-      managedCommandCustody(lease) ||
-      (lease.action.kind === "update" &&
-        lease.action.mutationProtocol === "original-cancellation-v1") ||
-      hasUnsettledChildren(lease) ||
-      !owns(lease, "executor") ||
-      lease.helper.pid !== process.pid ||
-      lease.action.kind !== "update" ||
-      action.kind !== "triage" ||
-      action.phase !== "reserved" ||
-      action.lifetime.kind !== "native" ||
-      action.lifetime.placement.kind !== "pending"
-    ) {
-      return null;
-    }
-    const payload = JSON.stringify({
-      version: 2,
-      executor: lease.helper,
-      helper: lease.helper,
-      action,
-      ...(lease.mutationOriginal ? { mutationOriginal: lease.mutationOriginal } : {}),
-    });
-    if (
-      !text.safeParse(root).success ||
-      !parseManagedHandoffLeasePayload(payload) ||
-      fs.realpathSync(root) !== root
-    ) {
-      throw new Error("managed triage destination is not canonical");
-    }
-    if (root === lease.key) {
-      const next = cas(lease, action, lease.helper);
-      return next ? { kind: "acquired", lease: next } : null;
-    }
-    return admit(root, lease.owner, payload, lease);
-  }
-  function activate(lease: ManagedHandoffLease) {
-    if (
-      !owns(lease) ||
-      processState(lease.executor) !== "live" ||
-      lease.executor.pid === lease.helper.pid ||
-      lease.action.kind !== "triage" ||
-      lease.action.phase !== "reserved"
-    ) {
-      return null;
-    }
-    return cas(lease, { ...lease.action, phase: "running" });
   }
   function readGeneration(lease: ManagedHandoffLease) {
     const result = read(lease.key);
@@ -670,8 +596,6 @@ function createLeaseStore(
     bindUpdateChildren,
     cancelUpdate,
     releaseAll: (leases: ManagedHandoffLease[]) => releaseAll(leases),
-    retarget,
-    activate,
     owns,
     hasUnsettledChildren,
     readCommandChildren,

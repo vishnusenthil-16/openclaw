@@ -75,7 +75,7 @@ export function boundedJsonUtf8Bytes(value: unknown, maxBytes: number): BoundedJ
         add(jsonStringByteLengthUpToLimit(entry, maxBytes - bytes));
         return;
       case "number":
-        add(jsonUtf8BytesOrInfinity(Number.isFinite(entry) ? entry : null));
+        add(jsonUtf8BytesOrInfinity(entry));
         return;
       case "boolean":
         add(entry ? 4 : 5);
