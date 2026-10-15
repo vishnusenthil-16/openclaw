@@ -2,7 +2,6 @@ import { execFile, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import { performance } from "node:perf_hooks";
-import { serialize } from "node:v8";
 import { formatByteSize } from "@openclaw/normalization-core";
 import { resolveTimerTimeoutMs } from "@openclaw/normalization-core/number-coercion";
 import { resolveForwardedNodeCompilerArgs } from "../bootstrap/node-compiler-args.js";
@@ -295,19 +294,12 @@ export function createScopedSqliteReadOnlyWorker(
   );
 }
 
-function prepareSqliteReadOnlyOperationCommand<Key extends string>(command: {
-  type: Key;
-  input: unknown;
-}) {
-  return { type: command.type, serialized: serialize(command).toString("base64") };
-}
-
 export async function runSqliteReadOnlyOperation<Key extends keyof SqliteReadOnlyOperations>(
   pathname: string,
   command: { type: Key; input: SqliteReadOnlyOperations[Key]["input"] },
   options: Omit<SqliteReadOnlyOperationOptions, "mode" | "command">,
 ): Promise<Awaited<SqliteReadOnlyOperations[Key]["output"]>> {
-  const capturedCommand = prepareSqliteReadOnlyOperationCommand(command);
+  const capturedCommand = structuredClone(command);
   const result = await runSqliteReadOnlyWorker(pathname, {
     ...options,
     mode: "operation",
@@ -323,7 +315,7 @@ export async function runScopedSqliteReadOnlyOperation<Key extends keyof SqliteR
   command: { type: Key; input: SqliteReadOnlyOperations[Key]["input"] },
   options: Omit<SqliteReadOnlyOperationOptions, "mode" | "command">,
 ): Promise<Awaited<SqliteReadOnlyOperations[Key]["output"]>> {
-  const capturedCommand = prepareSqliteReadOnlyOperationCommand(command);
+  const capturedCommand = structuredClone(command);
   const result = await worker.run(pathname, {
     ...options,
     mode: "operation",

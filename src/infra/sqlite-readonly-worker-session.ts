@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { Socket } from "node:net";
 import path from "node:path";
+import { serialize } from "node:v8";
 import { sliceUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import { BrokerChild } from "../process/spawn-broker/child.js";
 import { recordChildProcessSpawn } from "../process/spawn-diagnostics.js";
@@ -361,7 +362,7 @@ export function createSqliteReadOnlyWorkerSession(
                       expectedIdentity: options.expectedIdentity,
                       artifactPreserving: options.artifactPreserving,
                       ...(options.mode === "operation"
-                        ? { command: options.command.serialized }
+                        ? { command: serialize(options.command).toString("base64") }
                         : {
                             retainReader:
                               !host.pooledRead &&
