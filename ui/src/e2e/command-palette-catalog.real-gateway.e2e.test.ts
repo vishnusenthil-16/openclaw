@@ -540,7 +540,12 @@ suite.define(() => {
             }
             return client.request("config.patch", params);
           }, params);
-          commands.push({ method: "config.patch", params, result, elapsedMs: Date.now() - startedAt });
+          commands.push({
+            method: "config.patch",
+            params,
+            result,
+            elapsedMs: Date.now() - startedAt,
+          });
           expect(requireRecord(result).ok).toBe(true);
           // Runtime rows can arrive before this accepted-config event retires them.
           await expect
