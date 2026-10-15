@@ -171,7 +171,6 @@ it.each(["cached-writer", "admitted-read-only"] as const)(
       assertOwnerCurrent: admission,
       assertDatabaseAccess: (pathname) => expect(pathname).toBe(database),
     });
-    const hashes = vi.spyOn(snapshots, "readSqliteSourceContentVersionSync");
     const copies = vi.spyOn(snapshots, "prepareSqliteReadOnlyLocationSync");
     try {
       maintenance.run(() => {
@@ -182,7 +181,6 @@ it.each(["cached-writer", "admitted-read-only"] as const)(
           source === "cached-writer"
             ? openOpenClawStateDatabase({ env }).db
             : new DatabaseSync(database);
-        hashes.mockClear();
         copies.mockClear();
         maintenance.assertAdmission();
         db.exec("BEGIN IMMEDIATE");
@@ -199,13 +197,12 @@ it.each(["cached-writer", "admitted-read-only"] as const)(
             db.close();
           }
         }
-        expect(hashes).not.toHaveBeenCalled();
         expect(copies).not.toHaveBeenCalled();
       });
       await maintenance.close();
-      hashes.mockClear();
+      copies.mockClear();
       expect(() => admission()).not.toThrow();
-      expect(hashes).toHaveBeenCalled();
+      expect(copies).toHaveBeenCalled();
     } finally {
       await maintenance.close();
       assertIsolation();

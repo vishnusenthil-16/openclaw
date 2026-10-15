@@ -450,7 +450,9 @@ export function createHookRunner(
     if (acc?.action === "revise" && next.action === "revise") {
       const retryCandidates = [...(acc.retryCandidates ?? (acc.retry ? [acc.retry] : []))];
       const nextRetry = normalizeRetry(next.retry);
-      if (nextRetry) retryCandidates.push(nextRetry);
+      if (nextRetry) {
+        retryCandidates.push(nextRetry);
+      }
       const retry = retryCandidates[0];
       const result: PluginHookBeforeAgentFinalizeResult = {
         action: "revise",

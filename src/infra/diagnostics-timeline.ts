@@ -214,7 +214,9 @@ function normalizeAttributes(
   for (const [key, value] of Object.entries(attributes)) {
     if (typeof value === "number") {
       const number = normalizeNumber(value);
-      if (number !== undefined) normalized[key] = number;
+      if (number !== undefined) {
+        normalized[key] = number;
+      }
       continue;
     }
     normalized[key] = value;

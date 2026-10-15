@@ -400,7 +400,8 @@ export function reconcilePackageOwnerRefusal(
           query.select("run_id").where("status", "=", "running").limit(1),
         ) ||
         inspectRecoveryRows(db).some(
-          ({ record }) => record.runId === expected.runId || isUpdateRecoveryPending(record),
+          ({ record: recoveryRecord }) =>
+            recoveryRecord.runId === expected.runId || isUpdateRecoveryPending(recoveryRecord),
         )
       ) {
         return false;

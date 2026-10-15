@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync, StatementSync } from "node:sqlite";
 import { setImmediate as nextTurn } from "node:timers/promises";
-import { deserialize } from "node:v8";
+import { deserialize, serialize } from "node:v8";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { afterAll, beforeAll, expect, it, vi, type MockInstance } from "vitest";
 import { awaitGateBeforeSettlement, withinTest } from "../../test/helpers/promise.js";
@@ -24,7 +24,6 @@ import {
   closeSqliteReadOnlyWorkersForBroker,
   createScopedSqliteReadOnlyWorker,
   createSqliteReadOnlyWorkerScope,
-  prepareSqliteReadOnlyOperationCommand,
   runSqliteReadOnlyOperation,
 } from "./sqlite-readonly-worker.js";
 import { readDatabasePathIdentitySync } from "./sqlite-worker-identity.js";
@@ -462,10 +461,13 @@ it("quarantines failed cleanup without poisoning healthy capacity or launching a
         source: "canonical",
         expectedIdentity,
         env,
-        command: prepareSqliteReadOnlyOperationCommand({
+        command: {
           type: "pluginCatalog.read",
-          input: { agentId: "main", pluginIds: ["small"] },
-        }),
+          serialized: serialize({
+            type: "pluginCatalog.read",
+            input: { agentId: "main", pluginIds: ["small"] },
+          }).toString("base64"),
+        },
       },
       launch,
     );
@@ -522,10 +524,13 @@ it.skipIf(process.platform !== "linux")(
               source: "canonical",
               expectedIdentity,
               env,
-              command: prepareSqliteReadOnlyOperationCommand({
+              command: {
                 type: "pageCache.begin",
-                input: { kind: "agent", maxBytes: 1024, now: Date.now() },
-              }),
+                serialized: serialize({
+                  type: "pageCache.begin",
+                  input: { kind: "agent", maxBytes: 1024, now: Date.now() },
+                }).toString("base64"),
+              },
             },
             launch,
           ),
@@ -538,10 +543,13 @@ it.skipIf(process.platform !== "linux")(
           source: "canonical",
           expectedIdentity,
           env,
-          command: prepareSqliteReadOnlyOperationCommand({
+          command: {
             type: "pluginCatalog.read",
-            input: { agentId: "main", pluginIds: ["small"] },
-          }),
+            serialized: serialize({
+              type: "pluginCatalog.read",
+              input: { agentId: "main", pluginIds: ["small"] },
+            }).toString("base64"),
+          },
         },
         launch,
       );
