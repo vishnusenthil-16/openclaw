@@ -370,7 +370,7 @@ describe("devices agent bindings", () => {
         ]
       : [...nodes, ...competitors];
     renderBindings(initialNodes, scenario.unavailable ?? false);
-    renderBindings([{ ...nodes[0], commands: [] }], true);
+    renderBindings([{ ...expectDefined(nodes[0], "default bound node"), commands: [] }], true);
     renderBindings(nodes, false);
   });
 });
