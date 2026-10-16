@@ -88,6 +88,8 @@ export function evaluateWorkflowExpression(
     releaseRunnerGroup?: string;
     releasePublishRunId?: string;
     runnerGroup?: string;
+    crabboxRunnerLabel?: string;
+    trustedWorkflowJson?: string;
     releasePriorityRun?: string;
     releaseScope?: string;
     validationTier?: "full" | "main";
@@ -193,6 +195,8 @@ export function evaluateWorkflowExpression(
     inputs: {
       dispatch_id: context.dispatchId ?? "",
       runner_group: context.runnerGroup ?? "",
+      crabbox_runner_label: context.crabboxRunnerLabel ?? "",
+      trusted_workflow_json: context.trustedWorkflowJson ?? "",
       release_publish_run_id: context.releasePublishRunId ?? "",
       runner_backend: context.requestedRunnerBackend ?? "default",
       ci_shape: context.ciShape ?? "default",
