@@ -8,6 +8,16 @@ name: OpenGrep — PR Diff
 # For a repository-wide scan, use the manual OpenGrep — Full workflow.
 
 on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Git commit or ref to compare with the selected workflow ref
+        type: string
+        default: HEAD^
+      crabbox_runner_label:
+        description: Ephemeral Crabbox runner pool label; empty uses existing runners
+        type: string
+        default: ""
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -42,14 +52,14 @@ jobs:
   scan:
     name: Scan changed paths (precise)
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ${{ vars.OPENCLAW_CI_RUNNER_BACKEND == 'github' && 'ubuntu-24.04' || github.event.pull_request.head.repo.full_name == 'openclaw/openclaw' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.crabbox_runner_label != '' && fromJSON(format('["self-hosted","crabbox",{0},{1}]', toJSON(inputs.crabbox_runner_label), toJSON(vars.OPENCLAW_CI_RUNNER_BACKEND == 'github' && 'ubuntu-24.04' || github.event.pull_request.head.repo.full_name == 'openclaw/openclaw' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04'))) || (vars.OPENCLAW_CI_RUNNER_BACKEND == 'github' && 'ubuntu-24.04' || github.event.pull_request.head.repo.full_name == 'openclaw/openclaw' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04') }}
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 2
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && '0' || '2' }}
           fetch-tags: false
           persist-credentials: false
           submodules: false
@@ -63,17 +73,18 @@ jobs:
       - name: Resolve PR scan base
         id: scan-base
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ inputs.base_ref || github.event.pull_request.base.sha }}
         run: |
           # Resolve the scan's merge parent before fetching a stale event-payload base.
           base="$(node scripts/lib/merge-head-diff-base.mjs --base "$BASE_SHA" --head HEAD --prefer-first-parent)"
+          base="$(git rev-parse --verify --end-of-options "${base}^{commit}")"
           echo "sha=$base" >> "$GITHUB_OUTPUT"
 
       - name: Ensure PR base commit
         uses: ./.github/actions/ensure-base-commit
         with:
           base-sha: ${{ steps.scan-base.outputs.sha }}
-          fetch-ref: ${{ github.event.pull_request.base.ref }}
+          fetch-ref: ${{ github.event.pull_request.base.ref || github.ref_name }}
 
       - name: Install opengrep
         env:

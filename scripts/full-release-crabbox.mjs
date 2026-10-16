@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { dispatchCiWorkflow, readRunContext } from "./lib/crabbox-ci-dispatch.mjs";
 
 const repository = "openclaw/openclaw";
 const crabbox = process.env.CRABBOX_BIN || "crabbox";
@@ -19,12 +20,19 @@ const profiles = {
   "blacksmith-32vcpu-ubuntu-2404": { type: "c7a.8xlarge", arch: "amd64" },
 };
 
-function command(binary, args, { inherit = false, timeout = 30_000, includeStderr = false } = {}) {
+function command(
+  binary,
+  args,
+  { inherit = false, timeout = 30_000, includeStderr = false, input } = {},
+) {
   return new Promise((accept, reject) => {
     const child = spawn(binary, args, {
-      stdio: inherit ? "inherit" : ["ignore", "pipe", "pipe"],
+      stdio: inherit ? "inherit" : [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
       timeout,
     });
+    if (input !== undefined) {
+      child.stdin.end(input);
+    }
     let stdout = "";
     let stderr = "";
     child.stdout?.on("data", (chunk) => (stdout += chunk));
@@ -40,8 +48,22 @@ function command(binary, args, { inherit = false, timeout = 30_000, includeStder
   });
 }
 
-async function github(path, method = "GET") {
-  return JSON.parse(await command("gh", ["api", path, "--method", method]));
+async function github(path, method, body) {
+  return JSON.parse(
+    await command(
+      "gh",
+      [
+        "api",
+        path,
+        "--method",
+        method || "GET",
+        "-H",
+        "X-GitHub-Api-Version: 2026-03-10",
+        ...(body === undefined ? [] : ["--input", "-"]),
+      ],
+      { input: body === undefined ? undefined : JSON.stringify(body) },
+    ),
+  );
 }
 
 async function pages(path, key) {
@@ -101,20 +123,28 @@ export function planRunnerAdmissions(jobs, label, leases, maximum) {
 }
 
 function parseArgs(argv) {
-  const options = { maximum: 10, attach: "", dispatcherArgs: [] };
+  const options = { maximum: 10, attach: "", workflow: "", ref: "", run: "", dispatcherArgs: [] };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--") {
       options.dispatcherArgs = argv.slice(index + 1);
       break;
     }
+    if (
+      ["--max-runners", "--attach", "--workflow", "--ref", "--run"].includes(arg) &&
+      (!argv[index + 1] || argv[index + 1].startsWith("--"))
+    ) {
+      throw new Error(`Missing value for ${arg}`);
+    }
     if (arg === "--max-runners") {
       options.maximum = Number(argv[++index]);
     } else if (arg === "--attach") {
       options.attach = argv[++index];
+    } else if (["--workflow", "--ref", "--run"].includes(arg)) {
+      options[arg.slice(2)] = argv[++index];
     } else if (arg === "--help") {
       console.log(
-        "Usage: node scripts/full-release-crabbox.mjs [--max-runners 10] -- <full-release-validation-at-sha arguments>\n       node scripts/full-release-crabbox.mjs [--max-runners 10] --attach <retained-request.json>\n\nUses existing Crabbox broker and gh authentication. Provisions one-job AWS runners only for this release's Linux labels; native Windows/macOS retain their routes. Keep this command running through validation; it stops its VMs on completion. --attach resumes provisioning for a retained request, without redispatching it.",
+        "Usage: node scripts/full-release-crabbox.mjs [--max-runners 10] -- <full-release-validation-at-sha arguments>\n       node scripts/full-release-crabbox.mjs [--max-runners 10] --attach <retained-request.json>\n\nStandalone CI: --workflow <file.yml> --ref <branch/tag> -- -f key=value; or --run <manual-run-id>.\n\nUses existing Crabbox broker and gh authentication. Provisions one-job AWS runners only for this release's Linux labels; native Windows/macOS retain their routes. Keep this command running through validation; it stops its VMs on completion. --attach resumes provisioning for a retained request, without redispatching it.",
       );
       return null;
     } else {
@@ -124,7 +154,18 @@ function parseArgs(argv) {
   if (!Number.isSafeInteger(options.maximum) || options.maximum < 1 || options.maximum > 50) {
     throw new Error("--max-runners must be between 1 and 50; broker admission limits still apply");
   }
-  if (!options.attach && options.dispatcherArgs.length === 0) {
+  if (
+    [options.attach, options.workflow, options.run].filter(Boolean).length > 1 ||
+    (options.ref && !options.workflow) ||
+    (options.workflow && !options.ref) ||
+    ((options.attach || options.run) && options.dispatcherArgs.length)
+  ) {
+    throw new Error("Choose release arguments, --workflow with --ref, --run, or --attach");
+  }
+  if (options.run && !/^[1-9][0-9]*$/u.test(options.run)) {
+    throw new Error("--run must be a GitHub Actions run ID");
+  }
+  if (!options.attach && !options.workflow && !options.run && options.dispatcherArgs.length === 0) {
     throw new Error("Pass release arguments after --, or --attach a retained request");
   }
   if (options.attach && options.dispatcherArgs.length) {
@@ -144,12 +185,18 @@ async function readRequest(path) {
     throw error;
   }
   const { request } = record;
-  const envelope = JSON.parse(request.wireInputs.trusted_workflow_json);
-  const label = envelope.crabboxRunnerLabel;
+  const standalone = request.mode === "standalone";
+  const label = standalone
+    ? request.wireInputs.crabbox_runner_label
+    : JSON.parse(request.wireInputs.trusted_workflow_json).crabboxRunnerLabel;
   if (
     request.repository !== repository ||
     !labelPattern.test(label) ||
-    !request.workflowRef.startsWith("release-ci/")
+    (!standalone && !request.workflowRef.startsWith("release-ci/")) ||
+    (standalone &&
+      (!request.workflowRef ||
+        !/^[a-f0-9]{40}$/u.test(request.workflowSha) ||
+        !Number.isSafeInteger(request.workflowId)))
   ) {
     throw new Error("Retained request is not an OpenClaw Crabbox release dispatch");
   }
@@ -209,16 +256,59 @@ async function main() {
     }
   }
 
+  async function ownedRuns() {
+    const candidates = await pages(
+      `repos/${repository}/actions/runs?branch=${encodeURIComponent(context.request.workflowRef)}`,
+      "workflow_runs",
+    );
+    const owned = [];
+    for (const run of candidates) {
+      if (
+        run.head_sha !== context.request.workflowSha ||
+        (context.request.mode === "standalone" &&
+          run.id !== context.rootRunId &&
+          (run.event !== "workflow_dispatch" || run.status === "completed"))
+      ) {
+        continue;
+      }
+      const jobs = await pages(
+        `repos/${repository}/actions/runs/${run.id}/jobs?filter=all`,
+        "jobs",
+      );
+      if (
+        context.request.mode !== "standalone" ||
+        run.id === context.rootRunId ||
+        jobs.some((job) => job.labels.includes(context.label))
+      ) {
+        owned.push({ ...run, jobs });
+      }
+    }
+    if (!owned.some((run) => run.id === context.rootRunId)) {
+      const root = await github(`repos/${repository}/actions/runs/${context.rootRunId}`);
+      owned.push({
+        ...root,
+        jobs: await pages(`repos/${repository}/actions/runs/${root.id}/jobs?filter=all`, "jobs"),
+      });
+    }
+    return owned;
+  }
+
   async function cancelRemainingRuns() {
-    if (context?.rootRunId) {
-      const path = `repos/${repository}/actions/runs?branch=${encodeURIComponent(context.request.workflowRef)}`;
-      const active = (runs) =>
-        runs.filter(
-          (run) => run.head_sha === context.request.workflowSha && run.status !== "completed",
-        );
-      const runs = active(await pages(path, "workflow_runs"));
-      for (const run of runs) {
-        // Reconcile cancellation racing completion before deciding it failed.
+    if (!context?.rootRunId) {
+      return;
+    }
+    const cancelled = new Set();
+    const deadline = Date.now() + 5 * 60_000;
+    for (;;) {
+      const active = (await ownedRuns()).filter((run) => run.status !== "completed");
+      if (!active.length) {
+        return;
+      }
+      // A dispatched child can expose its label after shutdown's first observation.
+      for (const run of active) {
+        if (cancelled.has(run.id)) {
+          continue;
+        }
         try {
           await command("gh", [
             "api",
@@ -231,19 +321,32 @@ async function main() {
             throw error;
           }
         }
+        cancelled.add(run.id);
       }
-      const deadline = Date.now() + 5 * 60_000;
-      while (active(await pages(path, "workflow_runs")).length) {
-        if (Date.now() >= deadline) {
-          throw new Error("Release cancellation has not settled after five minutes");
-        }
-        await delay(5_000);
+      if (Date.now() >= deadline) {
+        throw new Error("CI cancellation has not settled after five minutes");
       }
+      await delay(5_000);
     }
   }
 
   try {
-    if (!options.attach) {
+    if (options.run) {
+      const record = await readRunContext({ runId: Number(options.run), github, pages });
+      await mkdir(dirname(requestPath), { recursive: true });
+      await writeFile(requestPath, JSON.stringify(record, null, 2) + "\n", { mode: 0o600 });
+      console.log(`Crabbox CI request: ${requestPath}`);
+    } else if (options.workflow) {
+      await dispatchCiWorkflow({
+        workflow: options.workflow,
+        ref: options.ref,
+        label,
+        requestPath,
+        github,
+        dispatcherArgs: options.dispatcherArgs,
+      });
+      console.log(`Crabbox CI request: ${requestPath}`);
+    } else if (!options.attach) {
       if (
         options.dispatcherArgs.some(
           (arg) => arg === "--request-file" || arg.includes("crabbox_runner_label="),
@@ -278,6 +381,11 @@ async function main() {
         break;
       }
       context = await readRequest(requestPath);
+      if (context?.request.mode === "standalone" && !context.record.run) {
+        throw new Error(
+          "Dispatch receipt is missing; inspect GitHub and recover using --run <id>. Do not redispatch this request.",
+        );
+      }
       if (context && !context.record.run) {
         // The dispatch owner records run authority only after its first-job witness.
         // Discover this unique transport's run to bootstrap that job, without writing
@@ -313,7 +421,14 @@ async function main() {
       let jobs;
       try {
         root = await github(`repos/${repository}/actions/runs/${rootRunId}`);
-        if (root.head_sha !== request.workflowSha || root.head_branch !== request.workflowRef) {
+        if (
+          root.head_sha !== request.workflowSha ||
+          root.head_branch !== request.workflowRef ||
+          (request.mode === "standalone" &&
+            (root.event !== "workflow_dispatch" ||
+              root.workflow_id !== request.workflowId ||
+              root.head_repository?.full_name !== repository))
+        ) {
           throw new Error("Release run no longer matches its retained dispatch identity");
         }
         if (!adopted) {
@@ -360,24 +475,12 @@ async function main() {
         }
         if (root.status === "completed") {
           completed = true;
-          if (options.attach) {
+          if (options.attach || options.run || options.workflow) {
             process.exitCode = root.conclusion === "success" ? 0 : 1;
           }
           break;
         }
-        const runs = await pages(
-          `repos/${repository}/actions/runs?branch=${encodeURIComponent(request.workflowRef)}`,
-          "workflow_runs",
-        );
-        jobs = [];
-        for (const run of runs) {
-          if (run.head_sha !== request.workflowSha) {
-            continue;
-          }
-          jobs.push(
-            ...(await pages(`repos/${repository}/actions/runs/${run.id}/jobs?filter=all`, "jobs")),
-          );
-        }
+        jobs = (await ownedRuns()).flatMap((run) => run.jobs);
         failures = 0;
       } catch (error) {
         failures += 1;
@@ -456,7 +559,7 @@ async function main() {
               "--id",
               id,
               "--",
-              "set -e; if ! command -v docker >/dev/null; then sudo apt-get update; sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io; fi; if ! docker compose version >/dev/null 2>&1; then sudo apt-get update; sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2; fi; sudo systemctl enable --now docker; sudo usermod -aG docker $(id -un)",
+              "set -e; if ! command -v docker >/dev/null; then sudo apt-get update; sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io; fi; if ! docker compose version >/dev/null 2>&1; then sudo apt-get update; if apt-cache show docker-compose-plugin >/dev/null 2>&1; then sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin; else sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2; fi; fi; sudo systemctl enable --now docker; sudo usermod -aG docker $(id -un)",
             ],
             { inherit: true, timeout: 10 * 60_000 },
           );
@@ -480,7 +583,11 @@ async function main() {
           const current = await github(`repos/${repository}/actions/runs/${rootRunId}`);
           if (
             current.head_sha !== request.workflowSha ||
-            current.head_branch !== request.workflowRef
+            current.head_branch !== request.workflowRef ||
+            (request.mode === "standalone" &&
+              (current.event !== "workflow_dispatch" ||
+                current.workflow_id !== request.workflowId ||
+                current.head_repository?.full_name !== repository))
           ) {
             throw new Error("Release authority changed while provisioning a runner");
           }
@@ -523,6 +630,12 @@ async function main() {
     }
   } finally {
     try {
+      if (!context) {
+        context = await readRequest(requestPath);
+        if (context?.record.run) {
+          context.rootRunId = context.record.run.id;
+        }
+      }
       await cancelRemainingRuns();
     } catch (error) {
       console.error(

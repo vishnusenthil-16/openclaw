@@ -6,6 +6,11 @@ name: OpenGrep — Full
 
 on:
   workflow_dispatch:
+    inputs:
+      crabbox_runner_label:
+        description: Ephemeral Crabbox runner pool label; empty uses existing runners
+        type: string
+        default: ""
 
 concurrency:
   group: opengrep-full-${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +26,7 @@ permissions:
 jobs:
   scan:
     name: Scan full repository (precise)
-    runs-on: ${{ vars.OPENCLAW_CI_RUNNER_BACKEND == 'github' && 'ubuntu-24.04' || 'blacksmith-16vcpu-ubuntu-2404' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.crabbox_runner_label != '' && fromJSON(format('["self-hosted","crabbox",{0},{1}]', toJSON(inputs.crabbox_runner_label), toJSON(vars.OPENCLAW_CI_RUNNER_BACKEND == 'github' && 'ubuntu-24.04' || 'blacksmith-16vcpu-ubuntu-2404'))) || (vars.OPENCLAW_CI_RUNNER_BACKEND == 'github' && 'ubuntu-24.04' || 'blacksmith-16vcpu-ubuntu-2404') }}
     timeout-minutes: 30
     steps:
       - name: Checkout

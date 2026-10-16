@@ -301,6 +301,16 @@ Full Release Validation's exact-target UI job retains the current three native
 shards for both runtimes. Historical compatibility targets keep their original
 unsharded package command; see [UI job budgets](/ci/scope-and-routing/job-budgets).
 
+For operator-managed AWS capacity, `node scripts/full-release-crabbox.mjs`
+can supervise Full Release Validation or a supported standalone manual workflow.
+Use `--workflow ci.yml --ref <trusted-ref> -- -f release_scope=full` to dispatch a manual
+lane, or `--run <run-id>` to supervise an existing manual run that requested a
+Crabbox label. The controller supplies bounded, ephemeral Linux runners while
+it remains running; this is not an automatic CI autoscaler. Ordinary push,
+pull-request, and scheduled workflows retain their routes. See
+[Crabbox Linux runners](/ci/release-validation/full-release-validation#crabbox-linux-runners)
+for credentials, recovery, and native/publication exceptions.
+
 Set the repository variable `OPENCLAW_RELEASE_RUNNER_GROUP` to reserve a runner
 group for Full Release Validation and its artifact, validation, and reusable
 worker jobs. The Release Publish parent and its dispatched publish children read

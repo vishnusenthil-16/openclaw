@@ -71,6 +71,7 @@ The `normal_ci` child dispatches `ci.yml` with the exact target and release scop
 without `release_gate`. Every selected failure remains blocking, including
 Windows Node failures.
 
+<a id="crabbox-linux-runners" />
 **Crabbox Linux runners.**
 
 Run the existing SHA-pinned dispatcher through the Crabbox controller to supply
@@ -94,7 +95,8 @@ Windows jobs retain their existing runners. This changes placement without
 changing test coverage or matrix concurrency limits.
 
 The operator needs a configured, authenticated AWS Crabbox broker and GitHub
-credentials that can register repository self-hosted runners. Ordinary workflow
+credentials with repository administration authority to register self-hosted
+runners. Repository maintain access alone is insufficient. Ordinary workflow
 `GITHUB_TOKEN` permissions do not grant runner registration. Broker lease limits,
 AWS quotas, and provider capacity can still delay provisioning. Keep the
 controller running through completion. It prints the retained request path and
@@ -112,6 +114,29 @@ of the exact dispatch input witness and child
 evidence identity. A new campaign label therefore does not reuse a child sealed
 with a different runner label. The release runner-group variable continues to
 control jobs that do not select the Crabbox override.
+
+The same controller can supply runners for supported standalone manual workflows:
+
+```bash
+node scripts/full-release-crabbox.mjs --max-runners 10 \
+  --workflow ci.yml --ref <trusted-branch-or-tag> -- -f release_scope=full
+
+node scripts/full-release-crabbox.mjs --max-runners 10 --run <workflow-run-id>
+```
+
+Standalone dispatch forwards `-f` inputs to the selected workflow and adds its
+unique Crabbox runner label. `--run` supervises an existing `workflow_dispatch`
+run whose root jobs expose exactly one Crabbox label; it does not rerun or
+redispatch it. When no routed root job exposes that label, use `--attach` with
+the controller's retained request instead. Use trusted repository refs and keep the controller running until the work
+finishes. This is operator-managed capacity, not an automatic CI autoscaler:
+push, pull-request, and scheduled events retain their usual routing. Native
+platform jobs, credentialed publication, and hosted-only orchestration remain
+on their existing runners.
+
+The controller owns the exact dispatched run and any same-ref, same-SHA child
+runs whose jobs carry its unique label. Supervision and cancellation stay within
+that set; unrelated runs on the same branch remain outside the campaign.
 
 Complete campaigns (`rerun_group=all`) retain QA Smoke's
 full scenario profile and Control UI performance independently of changed paths.

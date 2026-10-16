@@ -5,6 +5,10 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && format('OpenClaw Relea
 on:
   workflow_call:
     inputs:
+      crabbox_runner_label:
+        description: Ephemeral Crabbox runner pool label; empty uses existing runners
+        type: string
+        default: ""
       expected_trusted_workflow_sha:
         description: Exact trusted tooling SHA authorized for this workflow
         required: true
@@ -31,6 +35,10 @@ on:
         required: false
   workflow_dispatch:
     inputs:
+      crabbox_runner_label:
+        description: Ephemeral Crabbox runner pool label; empty uses existing runners
+        type: string
+        default: ""
       dispatch_id:
         description: Unique parent release-check dispatch identifier
         required: true
@@ -245,7 +253,7 @@ jobs:
     name: Build secretless Telegram candidate
     needs: trusted_identity
     if: always()
-    runs-on: *linux_runner_1
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.crabbox_runner_label != '' && fromJSON(format('["self-hosted","crabbox",{0},{1}]', toJSON(inputs.crabbox_runner_label), toJSON('ubuntu-24.04'))) || ('ubuntu-24.04') }}
     timeout-minutes: 45
     permissions:
       actions: read

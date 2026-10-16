@@ -22,6 +22,10 @@ on:
       - .github/workflows/website-installer-sync.yml
   workflow_dispatch:
     inputs:
+      crabbox_runner_label:
+        description: Ephemeral Crabbox runner pool label; empty uses existing runners
+        type: string
+        default: ""
       sync_website:
         description: Sync openclaw.ai after verification
         required: false
@@ -76,7 +80,10 @@ jobs:
           }
 
   linux-docker:
-    runs-on: *linux_runner_1
+    runs-on: &linux_runner >-
+      ${{ github.event_name == 'workflow_dispatch' && inputs.crabbox_runner_label != '' &&
+      fromJSON(format('["self-hosted","crabbox",{0},{1}]', toJSON(inputs.crabbox_runner_label),
+      toJSON('ubuntu-24.04'))) || ('ubuntu-24.04') }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,7 +107,7 @@ jobs:
             bash -lc 'apt-get update -y && apt-get install -y curl && bash /tmp/install-cli.sh --prefix /tmp/openclaw --no-onboard --version latest && /tmp/openclaw/bin/openclaw --version'
 
   debian-installer:
-    runs-on: *linux_runner_1
+    runs-on: *linux_runner
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,7 +135,7 @@ jobs:
           CONTAINER
 
   linux-build-tools-failure:
-    runs-on: *linux_runner_1
+    runs-on: *linux_runner
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -193,7 +200,7 @@ jobs:
           CONTAINER
 
   linux-non-root:
-    runs-on: *linux_runner_1
+    runs-on: *linux_runner
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -236,7 +243,7 @@ jobs:
       fail-fast: false
       matrix:
         user: [root, non-root]
-    runs-on: *linux_runner_1
+    runs-on: *linux_runner
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

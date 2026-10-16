@@ -27,6 +27,11 @@ on:
       - "scripts/stage-openclaw-bun.sh"
       - ".github/workflows/browser-mcp-contract.yml"
   workflow_dispatch:
+    inputs:
+      crabbox_runner_label:
+        description: Ephemeral Crabbox runner pool label; empty uses existing runners
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -46,7 +51,10 @@ env:
 jobs:
   contract:
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-    runs-on: &linux_runner_1 ubuntu-24.04
+    runs-on: &linux_runner >-
+      ${{ github.event_name == 'workflow_dispatch' && inputs.crabbox_runner_label != '' &&
+      fromJSON(format('["self-hosted","crabbox",{0},{1}]', toJSON(inputs.crabbox_runner_label),
+      toJSON('ubuntu-24.04'))) || ('ubuntu-24.04') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,7 +70,7 @@ jobs:
   # The macOS and Linux desktop apps run the Browser plugin only on the pinned Bun fork.
   contract-bun:
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-    runs-on: *linux_runner_1
+    runs-on: *linux_runner
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
